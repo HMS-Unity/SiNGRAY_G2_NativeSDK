@@ -4,12 +4,13 @@ Native SDK and Unity integration for SiNGRAY G2 AR devices, including Android na
 
 ## Documentation
 
+- [Release Notes](RELEASE_NOTES.md): versioned development changes since October 6, 2026, validation results, and upgrade notes.
 - [Demo and User Guide](Docs/Demo-and-User-Guide.md): environment setup, demo scenes, Android builds, device operation, integration, and troubleshooting.
 - [API Reference](Docs/API-Reference.md): product interfaces, sensor settings, events, data types, Foundation feature managers, and native interop guidance.
 
 ## Development branch
 
-The `dev/4.2` branch contains the `4.2.0-dev.1` development project. Use Unity **2022.3.62f3** with Android Build Support. This is the recorded Unity 2022 editor version; Unity 6 migration is not part of this branch. The current Android configuration uses IL2CPP, ARM64, minimum API 30, and target API 35.
+The `dev/4.2` branch contains the `4.2.0.2` development project. Use Unity **2022.3.62f3** with Android Build Support. This is the recorded Unity 2022 editor version; Unity 6 migration is not part of this branch. The current Android configuration uses IL2CPP, ARM64, minimum API 30, and target API 35.
 
 ```sh
 git lfs install

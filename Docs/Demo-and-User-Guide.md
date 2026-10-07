@@ -1,8 +1,10 @@
 # SiNGRAY G2 Native SDK: Demo and User Guide
 
-This guide covers the `dev/4.2` Unity project, its sample applications, and the workflow for building and running applications on SiNGRAY G2 devices. The configured product version is `4.2.0-dev.1`, a development build. Hardware behavior must be verified on the target device and firmware.
+This guide covers the `dev/4.2` Unity project, its sample applications, and the workflow for building and running applications on SiNGRAY G2 devices. The configured product version is `4.2.0.2`, a development build. Hardware behavior must be verified on the target device and firmware.
 
 For application interfaces, settings, events, and examples, see the [API Reference](API-Reference.md).
+
+See the [Release Notes](../RELEASE_NOTES.md) for changes since October 6, 2026. The current Android version code is `2`; the SDK and application version are `4.2.0.2`.
 
 ## 1. Development environment
 

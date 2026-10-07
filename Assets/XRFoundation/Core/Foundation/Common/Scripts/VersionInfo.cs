@@ -8,7 +8,7 @@ namespace Singray.Foundation
     public static class VersionInfo
     {
 
-        public static string version = "4.2.0";
+        public static string version = "4.2.0.2";
 
         public static void Print()
         {
