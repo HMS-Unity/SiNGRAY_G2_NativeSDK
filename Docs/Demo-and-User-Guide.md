@@ -8,7 +8,7 @@ For application interfaces, settings, events, and examples, see the [API Referen
 
 | Component | Project configuration |
 | --- | --- |
-| Unity Editor | `2022.3.62f2c1` |
+| Unity Editor | `2022.3.62f3` |
 | Build target | Android |
 | Scripting backend | IL2CPP |
 | CPU architecture | ARM64 |
@@ -19,6 +19,8 @@ For application interfaces, settings, events, and examples, see the [API Referen
 | Large binary storage | Git LFS for `.aar` and `.tgz` files |
 
 Install Android Build Support and the corresponding SDK, NDK, and OpenJDK through the Unity installation workflow. Use the recorded Editor version where available; validate any substitute version before adopting it for device builds. Git must be available for the Git-based package dependency in `Packages/manifest.json`.
+
+The editor version is recorded in `ProjectSettings/ProjectVersion.txt`; the package lock uses the `packages.unity.com` registry. This branch remains on Unity 2022, not Unity 6. Changing the Unity Hub language does not migrate a project or validate native SDK compatibility.
 
 ## 2. Obtain the project
 
@@ -70,6 +72,10 @@ The Editor command **Singray > XR > SDK Samples > Rebuild Hub Scene** regenerate
 
 ## 4. Build and install
 
+![Android Build Settings with the Viewer entry scene](images/android-build-settings.jpg)
+
+Actual Editor screenshot, October 7, 2026. The image illustrates scene selection and the Android target only. It does not show a successful build or sensor output from a device.
+
 1. Switch the active platform to Android in Build Settings.
 2. Confirm the entry scene and enabled scene order.
 3. Check Player Settings against the configuration table above.
@@ -97,6 +103,10 @@ Start with the configured RGB default of 1280 x 720 at 30 FPS and ToF QVGA at 30
 Use the RGBD sample to exercise RGB pixel-to-3D queries. Queries use image pixel coordinates, not Unity screen coordinates; convert UI coordinates to the camera image dimensions first. Treat a failed query as unavailable data rather than a valid origin point.
 
 Use the ToF Point Cloud sample to inspect depth-derived geometry. Allow time for the first data frame and validate scale and orientation against a known scene. Display textures are previews and should not be treated as raw metric depth measurements.
+
+The RGBD demo creates a world-space preview panel when no `RawImage` is assigned. An empty panel does not prove that RGB frames or depth data are available. Its manager waits up to ten seconds for SDK readiness and rejects pixel-pose queries before a valid frame timestamp is available.
+
+Starting the ToF Point Cloud demo now enables its drawing loop directly; pressing the Up Arrow key is no longer required to enable drawing. Pending native startup is cancelled when stopped. Leave the sample through Home and reopen it to verify repeated startup and cleanup.
 
 ### Calibration diagnostics
 
@@ -136,6 +146,21 @@ The manager can persist across scene changes. Coordinate stream ownership across
 Synthetic RGB previews use 512 x 288 textures, while simulated ToF previews use 320 x 240 textures. Frame metadata can describe a different configured resolution. Simulation is useful for UI wiring, lifecycle handling, and application flow. It does not establish native library compatibility, calibration accuracy, tracking quality, or device performance.
 
 For each release candidate, record the device and firmware, APK version, native library hashes, and results for startup, stream start/stop, scene transitions, interaction, and recording. Repeat device testing after replacing an AAR.
+
+### Device regression checklist
+
+The following failures were reported for `SDKSamples`. Code corrections are included, but all hardware results below remain **pending**. Managed compilation and parser checks cannot validate native frame delivery or rule out a native crash.
+
+| Sample | Test procedure | Expected result | Hardware status |
+| --- | --- | --- | --- |
+| RGBD | Open the module; start its capture controls; move the device and query an image pixel | Live RGB preview and valid pixel-to-3D results when supported data is available | Pending |
+| ToF Point Cloud | Start the module's point-cloud controls without keyboard input; view nearby geometry; stop and restart | Visible, updating points with plausible scale and orientation | Pending |
+| Plane Detection | Start detection facing a textured planar surface; return Home and repeat | Responsive UI, detected planes when supported, and no crash | Pending |
+| Spatial Map | Start scanning; toggle feature points; save, await completion, then load the saved path | No crash; valid map file and completion events; feature points when available | Pending |
+
+For every row, record the APK commit, device model, firmware, settings, and pass/fail result. Capture device screenshots or video for visible output and logcat for errors. Repeat entry/exit and application pause/resume. If a startup readiness timeout appears, investigate device initialization before treating missing output as a rendering problem.
+
+The current source passed runtime and Editor C# compilation with no errors (warnings remain), and eight plane-parser checks passed. An APK build and the device checks above have not been established by those checks.
 
 ## 9. Troubleshooting
 

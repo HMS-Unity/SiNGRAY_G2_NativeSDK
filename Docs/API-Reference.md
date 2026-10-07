@@ -254,6 +254,8 @@ Point-cloud methods are `StartTofPointCloud()`, `GetPointCloudData(out Vector3[]
 
 `XvRgbdManager` provides `StartRgbPose()`, `StopRgbPose()`, `GetRgbPixel3DPose(Vector2 rgbPoint, ref Vector3 spacePoint)`, and `GetRgbPixelPoseList(Vector2[] rgbPoint, ref pointer_3dpose[] spacePose)`.
 
+RGBD and point-cloud startup wait asynchronously for native SDK readiness, with a ten-second timeout. Start is a request, not a guarantee of available data. Stop cancels pending startup; RGBD also stops when its component is disabled. RGBD queries return false until running with a positive frame timestamp. Batch queries require non-null arrays and an output array at least as long as the input array. These Foundation native paths are guarded for Android players and do not provide Editor simulation.
+
 ### Spatial understanding
 
 | Manager | Main interface | Result handling |
@@ -264,6 +266,14 @@ Point-cloud methods are `StartTofPointCloud()`, `GetPointCloudData(out Vector3[]
 | `XvTagRecognizerManager` | `StartTagDetector(RecognizerMode recognizerMode)`, `StopTagDetector()`, `SetDetectStatus(bool isDetect)` | Configure and consume results as shown in the TagRecognizer sample |
 
 Spatial-map events are `onMapSaveCompleteEvent` (`UnityEvent<int, int>`), `onMapLoadCompleteEvent` (`UnityEvent<int>`), and `onMapMatchingEvent` (`UnityEvent<float>`). Their native codes are not translated into a product-level status enum.
+
+`StartPlaneDetction()` uses a cancellable readiness coroutine with a ten-second timeout instead of blocking the Unity main thread. `StopPlaneDetection()` and component disable cancel pending startup. Plane payload parsing validates declared lengths and counts before reading or allocating; rejected data is not a valid plane result. These checks cannot recover from a crash inside the native implementation.
+
+Spatial-map operations require an Android player and a ready SDK. `SaveSlamMap()` returns **null** when unavailable; otherwise it returns the requested output path before asynchronous completion. Wait for the save event and verify the file before loading or sharing it. `StartSlamMap()` resets SLAM; it does not itself enable feature-point visualization.
+
+Use `SwitchFeaturePointState()` to toggle feature-point acquisition and inspect the read-only `ShowFeaturePoint` property. `GetFeaturePoint()` returns null when unavailable, disabled, or given an invalid native pointer or count. Returned positions apply the manager's Y-axis sign inversion. Native map buffers remain SDK-owned and must not be freed or destroyed by callers.
+
+Map callbacks are queued and their UnityEvents are invoked from the manager's `Update()` on the main thread. Keep the manager active while awaiting results. Disabling it stops an active feature-point stream and clears queued events; it does not establish cancellation of a native save/load operation. Delegates are retained in static fields for native callback lifetime. Use a single active map manager and remove your event listeners during teardown.
 
 ### Gestures
 
@@ -314,5 +324,41 @@ The configured XR stack owns native initialization. Do not independently initial
 Calls such as `readRGBCalibration`, `readToFCalibration`, and stereo calibration access require the readiness sequence implemented by `XvSensorCalibrationDump`. Consult the binding for exact names and signatures before direct use. Invalid native calls can terminate the process even when surrounded by C# exception handling.
 
 ## 9. Compatibility and validation
+
+### Binding and namespace migration
+
+The separate `XvNativeAPI` class has been removed. Its 19 distinct declarations now reside in the global `API` class under `Additional xv-wrapper bindings`, with their original native library, entry points, and signatures preserved. Replace `XvNativeAPI.Method(...)` with `API.Method(...)` in application code.
+
+| Return type | Migrated declaration |
+| --- | --- |
+| `bool` | `initXvDevice()` |
+| `bool` | `xv_test_get_6dof(double[] poseData, ref long timestamp, double prediction)` |
+| `void` | `rgb_set_exposure(int aecMode, int exposureGain, float exposureTimeMs)` |
+| `void` | `startRgbStream()` |
+| `void` | `stopRgbStream()` |
+| `void` | `startTofStream()` |
+| `void` | `stopTofStream()` |
+| `bool` | `setPmdTofIRFunction()` |
+| `int` | `xv_start_skeleton_ex_with_cb()` |
+| `int` | `start_et_gaze_callback()` |
+| `bool` | `xvReadStereoFisheyesCalibration()` |
+| `bool` | `stm_start()` |
+| `bool` | `stm_stop()` |
+| `void` | `xv_controller_register()` |
+| `void` | `xv_recognize_from_local(string name)` |
+| `void` | `xv_audio_recognize_switch_source(int source)` |
+| `bool` | `xv_get_prob(double[] poseData)` |
+| `bool` | `xv_get_tofir_image(IntPtr data, int width, int height)` |
+| `void` | `startTofIRStream()` |
+
+These declarations use `DllImport("xv-wrapper")`; `rgb_set_exposure` maps to the native entry point `xv_rgb_set_exposure`. The array parameters retain their `[In, Out]` attributes in source. Array sizes, native status codes, and feature support must follow the supplier contract; this table does not define new buffer layouts or success codes. Similarly named `xslam_*` methods use a different binding contract and are not interchangeable aliases. Keep `libxv-wrapper.so` and the required AARs when using these interfaces.
+
+`XvGazeButton` now belongs to `Singray.UI.Input`. Replace `using Xvisio.Input.UI;` with `using Singray.UI.Input;` for consumers of that component. Its Unity asset GUID is preserved, so existing serialized references are retained.
+
+The AI Talk implementation and sample have been removed; they are no longer supported integration entry points. Separate speech examples remain. The obsolete branding postprocessor and legacy Java demo activities were also removed. This cleanup does not remove the native SDK initialization stack, required Android manifest entries, or supplier libraries.
+
+### Verification scope
+
+The recorded project editor is Unity `2022.3.62f3`. Managed runtime and Editor compilation completed with no errors, with existing warnings. Eight plane-parser checks passed. Device verification of RGBD, ToF Point Cloud, Plane Detection, and Spatial Map remains pending; see the [regression checklist](Demo-and-User-Guide.md#device-regression-checklist).
 
 Replacing an AAR can change native behavior without changing any C# signature. Validate startup, frame delivery, timestamps, sensor settings, pause/resume, and shutdown on the target firmware after a native library update. The documented interfaces were checked against source; this reference is not a claim that device regression tests have passed for the current binary.
