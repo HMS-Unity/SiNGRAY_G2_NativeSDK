@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.IO;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
@@ -49,46 +51,47 @@ namespace Singray.Foundation
         /// <summary>
         /// 
         /// </summary>
+        private Coroutine startRoutine;
         public void StartPlaneDetction()
         {
-            if (!isDetecting)
-            {
-                isDetecting = true;
-#if !PLATFORM_ANDROID || UNITY_EDITOR
-                return;
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (!isDetecting && startRoutine == null)
+                startRoutine = StartCoroutine(StartDetectionWhenReady());
 #endif
+        }
 
-                while (!API.xslam_ready())
+        private IEnumerator StartDetectionWhenReady()
+        {
+            yield return null;
+            float deadline = Time.realtimeSinceStartup + 10f;
+            while (!API.xslam_ready())
+            {
+                if (Time.realtimeSinceStartup >= deadline)
                 {
-                    MyDebugTool.Log("xslam_ready==false");
+                    Debug.LogWarning("PlaneDetection: SDK readiness timeout.");
+                    startRoutine = null;
+                    yield break;
                 }
-
-                // CameraManager.StopCapture(XvCameraStreamType.TofDepthCameraStream);
-
-                MyDebugTool.Log("Start plane detection 1");
-                API.xslam_tof_set_framerate(5);
-                API.xslam_start_detect_plane_from_tof_nosurface();
-                MyDebugTool.Log("Start plane detection 2");
-
+                yield return null;
             }
-
+            Debug.Log("PlaneDetection: starting native ToF plane detection.");
+            API.xslam_tof_set_framerate(5);
+            isDetecting = API.xslam_start_detect_plane_from_tof_nosurface();
+            startRoutine = null;
+            Debug.Log("PlaneDetection: native start result=" + isDetecting);
         }
 
         public void StopPlaneDetection()
         {
-            if (isDetecting)
-            {
-                isDetecting = false;
-#if !PLATFORM_ANDROID || UNITY_EDITOR
-                return;
-#endif          
-                MyDebugTool.Log("Stop plane detection 1");
-
-                API.xslam_stop_detect_plane_from_tof();
-                MyDebugTool.Log("Stop plane detection 2");
-
-            }
+            if (startRoutine != null) StopCoroutine(startRoutine);
+            startRoutine = null;
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (isDetecting) API.xslam_stop_detect_plane_from_tof();
+#endif
+            isDetecting = false;
         }
+
+        private void OnDisable() => StopPlaneDetection();
 
         private void Update()
         {
@@ -122,8 +125,9 @@ namespace Singray.Foundation
             int len = 1024 * 64;
             byte[] rdata = new byte[len];
             GCHandle rh = GCHandle.Alloc(rdata, GCHandleType.Pinned);
-            bool ret = API.xslam_get_plane_from_tof(rh.AddrOfPinnedObject(), ref len);
-            rh.Free();
+            bool ret;
+            try { ret = API.xslam_get_plane_from_tof(rh.AddrOfPinnedObject(), ref len); }
+            finally { rh.Free(); }
             if (ret)
                 return ParsePlane(rdata, len);
             else
@@ -135,47 +139,37 @@ namespace Singray.Foundation
         /// <param name="rdata">Plane data</param>
         /// <param name="len">Total data length</param>
         /// <returns></returns>
-        private plane[] ParsePlane(byte[] rdata, int len)
+        private static plane[] ParsePlane(byte[] rdata, int len)
         {
-            plane[] planes = new plane[0];
-            if (len < 4)
-                return null;
-
-            int pos = 0;
-
-            int nPlane = BitConverter.ToInt32(rdata, pos);
-            pos += 4;
-            if (nPlane > 0 && len > pos)
+            if (rdata == null || len < 4 || len > rdata.Length) return null;
+            try
             {
-                planes = new plane[nPlane];
-                for (int i = 0; i < nPlane; i++)
+                using (var reader = new BinaryReader(new MemoryStream(rdata, 0, len)))
                 {
-                    if (len <= pos)
-                        break;
-
-                    planes[i] = new plane();
-
-                    int nPoint = BitConverter.ToInt32(rdata, pos); pos += 4;
-                    planes[i].points = new List<Vector3D>();
-                    for (int j = 0; j < nPoint; j++)
+                    int count = reader.ReadInt32();
+                    if (count < 0 || count > (len - 4) / 40) return null;
+                    var planes = new plane[count];
+                    for (int i = 0; i < count; i++)
                     {
-                        Vector3D point;
-                        point.x = BitConverter.ToDouble(rdata, pos); pos += 8;
-                        point.y = BitConverter.ToDouble(rdata, pos); pos += 8;
-                        point.z = BitConverter.ToDouble(rdata, pos); pos += 8;
-                        planes[i].points.Add(point);
+                        int points = reader.ReadInt32();
+                        long remaining = len - reader.BaseStream.Position;
+                        if (points < 0 || remaining < 36 || points > (remaining - 36) / 24) return null;
+                        var item = new plane { points = new List<Vector3D>(points) };
+                        for (int j = 0; j < points; j++)
+                            item.points.Add(new Vector3D { x = reader.ReadDouble(), y = reader.ReadDouble(), z = reader.ReadDouble() });
+                        item.normal = new Vector3D { x = reader.ReadDouble(), y = reader.ReadDouble(), z = reader.ReadDouble() };
+                        item.d = reader.ReadDouble();
+                        int idLength = reader.ReadInt32();
+                        if (idLength < 0 || idLength > len - reader.BaseStream.Position) return null;
+                        item.id = BitConverter.ToString(reader.ReadBytes(idLength));
+                        planes[i] = item;
                     }
-                    planes[i].normal.x = BitConverter.ToDouble(rdata, pos); pos += 8;
-                    planes[i].normal.y = BitConverter.ToDouble(rdata, pos); pos += 8;
-                    planes[i].normal.z = BitConverter.ToDouble(rdata, pos); pos += 8;
-                    planes[i].d = BitConverter.ToDouble(rdata, pos); pos += 8;
-                    int idLen = BitConverter.ToInt32(rdata, pos); pos += 4;
-                    planes[i].id = BitConverter.ToString(rdata, pos, idLen); pos += idLen;
+                    return planes;
                 }
-                return planes;
             }
-            return null;
+            catch (EndOfStreamException) { return null; }
         }
+
 
         private void OnDestroy()
         {

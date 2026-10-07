@@ -362,6 +362,7 @@ namespace Singray.Foundation
 
         private void OnDestroy()
         {
+            StopTofPointCloud();
             onARCameraStreamFrameArrived.RemoveListener(OnDiagnosticRgbFrame);
             onTofDepthCameraStreamFrameArrived.RemoveListener(OnDiagnosticTofDepthFrame);
             onTofIRCameraStreamFrameArrived.RemoveListener(OnDiagnosticTofIrFrame);
@@ -504,6 +505,7 @@ namespace Singray.Foundation
         private bool isGetTofData;
         private Vector3[] vecGroup;
         private bool startPointCloud;
+        private Coroutine pointCloudStartRoutine;
 
         /// <summary>
         /// Set ToF exposure time
@@ -535,20 +537,29 @@ namespace Singray.Foundation
         /// </summary>
         public void StartTofPointCloud()
         {
+            if (startPointCloud) return;
             startPointCloud = true;
-#if UNITY_EDITOR
+#if !UNITY_ANDROID || UNITY_EDITOR
             MyDebugTool.LogDiagnosticWarning("TOF", "point-cloud-editor", "point cloud requires the Android SDK and a connected device", 0f);
             return;
 #else
-            StartCoroutine(StartTofPointCloudRoutine());
+            pointCloudStartRoutine = StartCoroutine(StartTofPointCloudRoutine());
 #endif
         }
 
         private IEnumerator StartTofPointCloudRoutine()
         {
+            yield return null;
+            float deadline = Time.realtimeSinceStartup + 10f;
             while (!API.xslam_ready())
             {
-                MyDebugTool.LogDiagnosticWarning("TOF", "point-cloud-wait", "waiting for SDK before starting point cloud", 2f);
+                if (Time.realtimeSinceStartup >= deadline)
+                {
+                    startPointCloud = false;
+                    pointCloudStartRoutine = null;
+                    Debug.LogWarning("ToF point cloud: SDK readiness timeout.");
+                    yield break;
+                }
                 yield return null;
             }
 
@@ -557,6 +568,8 @@ namespace Singray.Foundation
                 StopCapture(XvCameraStreamType.TofDepthCameraStream);
             }
 
+            if (!startPointCloud) yield break;
+            pointCloudStartRoutine = null;
             // These values are the known working point-cloud configuration used
             // by the 4.1.1 branch. DepthOnly/IQMIX_SF does not produce cloud data.
             XvTofCameraParameter.tofStreamMode = TofStreamMode.CloudOnLeftHandSlam;
@@ -578,6 +591,10 @@ namespace Singray.Foundation
         /// <returns></returns>
         public bool GetPointCloudData(out Vector3[] data)
         {
+#if !UNITY_ANDROID || UNITY_EDITOR
+            data = null;
+            return false;
+#endif
             if (!startPointCloud)
             {
                 data = null;
@@ -626,8 +643,12 @@ namespace Singray.Foundation
        /// </summary>
         public void StopTofPointCloud()
         {
+            if (pointCloudStartRoutine != null) StopCoroutine(pointCloudStartRoutine);
+            pointCloudStartRoutine = null;
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (startPointCloud && API.xslam_ready()) XvTofManager.GetXvTofManager().StopTofStream();
+#endif
             startPointCloud = false;
-            XvTofManager.GetXvTofManager().StopTofStream();
             isGetTofData = false;
             vecGroup = null;
             width = 0;

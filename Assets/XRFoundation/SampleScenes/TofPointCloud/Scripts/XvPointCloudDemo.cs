@@ -67,8 +67,8 @@ namespace Singray.Foundation.SampleScenes
             slider_2.onValueChanged.RemoveListener(changeIpd2);
             slider.onValueChanged.RemoveListener(changeIpd);
 
-            CancelInvoke("saveAsc");
-            CancelInvoke("screenShot");
+            CancelInvoke();
+            StopTofPointCloud();
         }
 
         private void OnDestroy()
@@ -92,6 +92,9 @@ namespace Singray.Foundation.SampleScenes
         // Update is called once per frame
         void Update()
         {
+#if !UNITY_ANDROID || UNITY_EDITOR
+            return;
+#endif
             if (!API.xslam_ready())
             {
                 return;
@@ -263,13 +266,17 @@ namespace Singray.Foundation.SampleScenes
 
         public void StartTofPointCloud()
         {
+            ifSave = true;
+            countTime = 0;
             XvCameraManager.StartTofPointCloud();
         }
 
         public void StopTofPointCloud()
         {
-            particlesCloudPoint.gameObject.SetActive(false);
-            XvCameraManager.StopTofPointCloud();
+            bool wasRunning = ifSave;
+            ifSave = false;
+            if (particlesCloudPoint != null) particlesCloudPoint.gameObject.SetActive(false);
+            if (wasRunning && cameraManager != null) cameraManager.StopTofPointCloud();
         }
 
         public void SetUp()

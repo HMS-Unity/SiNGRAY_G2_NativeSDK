@@ -48,7 +48,7 @@ namespace Singray.Foundation
         /// </summary>
         public void StartRgbPose()
         {
-#if  UNITY_EDITOR
+#if !UNITY_ANDROID || UNITY_EDITOR
             MyDebugTool.LogDiagnosticWarning("RGBD", "editor", "RGBD requires the Android SDK and a connected device", 0f);
             return;
 #else
@@ -62,9 +62,17 @@ namespace Singray.Foundation
 
         private IEnumerator StartRgbPoseRoutine()
         {
+            yield return null;
+            float deadline = Time.realtimeSinceStartup + 10f;
             while (!API.xslam_ready())
             {
                 MyDebugTool.LogDiagnosticWarning("RGBD", "wait-sdk", "waiting for SDK before starting RGBD", 2f);
+                if (Time.realtimeSinceStartup >= deadline)
+                {
+                    startRoutine = null;
+                    Debug.LogWarning("RGBD: SDK readiness timeout.");
+                    yield break;
+                }
                 yield return null;
             }
 
@@ -83,7 +91,7 @@ namespace Singray.Foundation
         /// </summary>
         public void StopRgbPose()
         {
-#if  UNITY_EDITOR
+#if !UNITY_ANDROID || UNITY_EDITOR
             return;
 
 #endif
@@ -92,6 +100,7 @@ namespace Singray.Foundation
                 StopCoroutine(startRoutine);
                 startRoutine = null;
             }
+            if (!isRunning) return;
             API.xv_stop_rgb_pixel_pose();
             CameraManager.StopCapture(XvCameraStreamType.ARCameraStream);
             CameraManager.StopCapture(XvCameraStreamType.TofDepthCameraStream);
@@ -112,11 +121,12 @@ namespace Singray.Foundation
         {
 
 
-#if UNITY_EDITOR
+#if !UNITY_ANDROID || UNITY_EDITOR
             return false;
  
 #endif
 
+            if (!isRunning || hostTimestamp <= 0) return false;
             API.Vector2F rgbPixelPoint = default(API.Vector2F);
             rgbPixelPoint.x = rgbPoint.x;
             rgbPixelPoint.y = rgbPoint.y;
@@ -140,11 +150,12 @@ namespace Singray.Foundation
         /// <returns></returns>
         public bool GetRgbPixelPoseList( Vector2[] rgbPoint,ref pointer_3dpose[] spacePose)
         {
-#if UNITY_EDITOR
+#if !UNITY_ANDROID || UNITY_EDITOR
             return false;
 
 #endif
 
+            if (!isRunning || hostTimestamp <= 0 || rgbPoint == null || spacePose == null || spacePose.Length < rgbPoint.Length) return false;
             int size = rgbPoint.Length;
 
           
@@ -160,6 +171,8 @@ namespace Singray.Foundation
             return false;
 
         }
+
+        private void OnDisable() => StopRgbPose();
 
         private void onFrameArrived(cameraData cameraData)
         {

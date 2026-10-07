@@ -82,7 +82,7 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 6971180689213371504, guid: 433003a689606bd4cba5d498eeead7e8, type: 3}
+    - target: {fileID: 1937375472593754658, guid: 433003a689606bd4cba5d498eeead7e8, type: 3}
       propertyPath: rgbdManager
       value: 
       objectReference: {fileID: 8352579463224358165}

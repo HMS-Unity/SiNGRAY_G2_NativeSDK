@@ -1,5 +1,6 @@
 using AOT;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
@@ -13,6 +14,33 @@ namespace Singray.Foundation
     public sealed class XvSpatialMapManager : MonoBehaviour
     {
         private XvSpatialMapManager() { }
+        private static readonly ConcurrentQueue<Action> pendingCallbacks = new ConcurrentQueue<Action>();
+        private static readonly API.detectCslamSaved_callback savedCallback = OnCslamSaved;
+        private static readonly API.detectLocalized_callback saveLocalizedCallback = OnSaveLocalized;
+        private static readonly API.detectSwitched_callback switchedCallback = OnCslamSwitched;
+        private static readonly API.detectLocalized_callback loadLocalizedCallback = OnLoadLocalized;
+
+        private static bool NativeReady()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            return API.xslam_ready();
+#else
+            return false;
+#endif
+        }
+
+        private void Update()
+        {
+            while (pendingCallbacks.TryDequeue(out Action callback)) callback();
+        }
+
+        private void OnDisable()
+        {
+            if (showFeaturePoint && NativeReady()) API.xslam_stop_map();
+            showFeaturePoint = false;
+            while (pendingCallbacks.TryDequeue(out _)) { }
+        }
+
 
 
        
@@ -38,6 +66,7 @@ namespace Singray.Foundation
         /// </summary>
         public void StartSlamMap()
         {
+            if (!NativeReady()) { Debug.LogWarning("SpatialMap: SDK is not ready."); return; }
 
             MyDebugTool.Log("Scan map 1");
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -53,11 +82,12 @@ namespace Singray.Foundation
         /// <returns></returns>
         public string SaveSlamMap()
         {
+            if (!NativeReady()) { Debug.LogWarning("SpatialMap: SDK is not ready."); return null; }
             MyDebugTool.Log("Save map 1: " );
 
             string cslamName = GetNowStamp() + "_map.bin";
             string mapPath = Application.persistentDataPath + "/" + cslamName;
-            API.xslam_save_map_and_switch_to_cslam(mapPath, OnCslamSaved, OnSaveLocalized);
+            API.xslam_save_map_and_switch_to_cslam(mapPath, savedCallback, saveLocalizedCallback);
             MyDebugTool.Log("Save map 2: "+ mapPath);
 
             return mapPath;
@@ -69,10 +99,11 @@ namespace Singray.Foundation
         /// <param name="mapPath"></param>
         public void LoadSlamMap(string mapPath)
         {
+            if (!NativeReady()) { Debug.LogWarning("SpatialMap: SDK is not ready."); return; }
             MyDebugTool.Log("Load map 1: " + mapPath);
 
             API.xslam_reset_slam();         
-            API.xslam_load_map_and_switch_to_cslam(mapPath, OnCslamSwitched, OnLoadLocalized);
+            API.xslam_load_map_and_switch_to_cslam(mapPath, switchedCallback, loadLocalizedCallback);
             MyDebugTool.Log("Load map 2: " + mapPath);
 
         }
@@ -84,13 +115,14 @@ namespace Singray.Foundation
            
         }
         public void SwitchFeaturePointState() {
+            if (!NativeReady()) { Debug.LogWarning("SpatialMap: SDK is not ready."); return; }
 
           
             if (!showFeaturePoint)
             {
                 
-                API.xslam_start_map();
-                showFeaturePoint = true;
+                Debug.Log("SpatialMap: starting native feature-point stream.");
+                showFeaturePoint = API.xslam_start_map();
 
                 MyDebugTool.Log("Enable feature points");
             }
@@ -112,7 +144,7 @@ namespace Singray.Foundation
         /// <returns>Feature-point positions in space</returns>
         public List<Vector3> GetFeaturePoint()
         {
-                if (!API.xslam_ready()|| !ShowFeaturePoint)
+                if (!NativeReady() || !ShowFeaturePoint)
                 {
                     return null;
                 }
@@ -120,6 +152,7 @@ namespace Singray.Foundation
            
                 int count = 0;
                 IntPtr pt = API.xslam_get_slam_map(ref count);
+                if (pt == IntPtr.Zero || count <= 0 || count > 1000000) return null;
                 API.SlamMap[] objdata = new API.SlamMap[count];
 
                 List<Vector3> pointList = new List<Vector3>();
@@ -131,7 +164,7 @@ namespace Singray.Foundation
 
                     Vector3 xyz = new Vector3(objdata[i].vertices[0], -objdata[i].vertices[1], objdata[i].vertices[2]);
                     pointList.Add(xyz);
-                    Marshal.DestroyStructure(ptr, typeof(Vector3));
+                    // The SDK owns this memory; do not destroy or free it.
                 }
                 return pointList;
 
@@ -165,7 +198,7 @@ namespace Singray.Foundation
         static void OnCslamSaved(int status_of_saved_map, int map_quality)
         {
           
-            onMapSaveCompleteEvent?.Invoke(status_of_saved_map, map_quality);
+            pendingCallbacks.Enqueue(() => onMapSaveCompleteEvent?.Invoke(status_of_saved_map, map_quality));
 
             MyDebugTool.Log("Save completed: status_of_saved_map:"+ status_of_saved_map+ "   map_quality:" + map_quality);
         }
@@ -191,7 +224,7 @@ namespace Singray.Foundation
             MyDebugTool.Log("Map loading completed: " + map_quality);
 
             load_map_quality = map_quality;
-            onMapLoadCompleteEvent?.Invoke(load_map_quality);
+            pendingCallbacks.Enqueue(() => onMapLoadCompleteEvent?.Invoke(map_quality));
         }
 
         /// <summary>
@@ -202,7 +235,7 @@ namespace Singray.Foundation
         static void OnLoadLocalized(float percentc)
         {
             similarity = percentc;
-            onMapMatchingEvent?.Invoke( similarity);
+            pendingCallbacks.Enqueue(() => onMapMatchingEvent?.Invoke(percentc));
         }
 
 

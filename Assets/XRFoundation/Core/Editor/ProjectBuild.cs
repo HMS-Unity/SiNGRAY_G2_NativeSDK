@@ -353,14 +353,6 @@ namespace Singray.Foundation
                 "Assets/XRFoundation/SampleScenes/IRToWorld/Scenes/IRToWorld.unity",
             }, "IRToWorld");
         }
-        [MenuItem("Singray/Toolkit/Build Scenes/XvAITalk", false, 0)]
-        static void XvAITalk()
-        {
-            BuildScenes(new[]
-            {
-                "Assets/XRFoundation/SampleScenes/XvAITalk/Scenes/XvAITalk.unity",
-            }, "XvAITalk");
-        }
 
 
         //[MenuItem("Singray/Toolkit/Build Scenes/InfraredTracked", false, 0)]

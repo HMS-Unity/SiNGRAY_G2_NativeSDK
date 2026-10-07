@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-namespace Xvisio.Input.UI
+namespace Singray.UI.Input
 {
     public class XvGazeButton :MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
