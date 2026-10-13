@@ -551,7 +551,7 @@ namespace NatSuite.Examples {
 
 
 #if PLATFORM_ANDROID && !UNITY_EDITOR
-            string dstDir = "/storage/emulated/0/DCIM/ScreenRecorder";
+            string dstDir = "/sdcard/DCIM/guest";
             string path2 = dstDir + "/" + getDate() + ".mp4";
             await Task.Run(() =>
             {

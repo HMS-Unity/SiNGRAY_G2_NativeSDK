@@ -92,7 +92,8 @@ namespace Singray.Foundation
             if (Application.platform == RuntimePlatform.Android)
             {
                 MyDebugTool.LogError("nativeInit start.....");
-                AndroidHelper.CallObjectMethod(InterfaceObject, "nativeInit", new object[] { });
+                if (!AndroidHelper.CallObjectMethod(InterfaceObject, "nativeInit", new object[] { }))
+                    throw new InvalidOperationException("RTSP native initialization failed.");
                 MyDebugTool.LogError("nativeInit end.....");
                 CreateTextureAndPassToPlugin();
                 initialized = true;
@@ -177,10 +178,12 @@ namespace Singray.Foundation
                 StartAudioCapture();
 
                 MyDebugTool.LogError("OnPcDisplayClick");
-                AndroidHelper.CallObjectMethod(InterfaceObject, "setUseDLNA", new object[] { false });
+                if (!AndroidHelper.CallObjectMethod(InterfaceObject, "setUseDLNA", new object[] { false }))
+                    throw new InvalidOperationException("RTSP mode configuration failed.");
                 MyDebugTool.LogError("setUseDLNA");
 
-                AndroidHelper.CallObjectMethod(InterfaceObject, "tvDisplayClicked", new object[] { });
+                if (!AndroidHelper.CallObjectMethod(InterfaceObject, "tvDisplayClicked", new object[] { }))
+                    throw new InvalidOperationException("RTSP start command failed.");
                 MyDebugTool.LogError("tvDisplayClicked");
                // Invoke("StartAudioCapture", 3);
             }
@@ -225,12 +228,35 @@ namespace Singray.Foundation
             if (isStreeaming)
             {
 
-                isStreeaming = false;
                 if (Application.platform == RuntimePlatform.Android)
                 {
-                    AndroidHelper.CallObjectMethod(InterfaceObject, "tvStopClicked", new object[] { });
+                    // The bundled plugin's tvStopClicked dereferences mScreenWrap
+                    // even in its internal RTSP mode, where that field is null.
+                    // Stop the internal encoder directly in that mode.
+                    using (AndroidJavaObject screenWrap = InterfaceObject.Get<AndroidJavaObject>("mScreenWrap"))
+                    {
+                        if (screenWrap != null)
+                        {
+                            if (!AndroidHelper.CallObjectMethod(InterfaceObject, "tvStopClicked", new object[] { }))
+                                throw new InvalidOperationException("RTSP stop command failed.");
+                        }
+                        else
+                        {
+                            using (AndroidJavaObject encoder = InterfaceObject.Get<AndroidJavaObject>("unitOnlyCamera"))
+                            {
+                                if (encoder != null && encoder.Call<bool>("isStreaming")) encoder.Call("stopStream");
+                            }
+                            InterfaceObject.Set("isStreaming", false);
+                            using (var audioClass = new AndroidJavaClass("com.xv.extend.AudioCapture"))
+                            using (var playerClass = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+                            using (var activity = playerClass.GetStatic<AndroidJavaObject>("currentActivity"))
+                            using (var audio = audioClass.CallStatic<AndroidJavaObject>("getInstance", activity))
+                                audio.Call("stopRecord");
+                        }
+                    }
 
                 }
+                isStreeaming = false;
             }
         }
        
