@@ -97,6 +97,8 @@ namespace Singray.Foundation
             cameraText = transform.Find("HandMenu/MenuContent/ButtonCollection/Camera/IconAndText/TextMeshPro").GetComponent<TextMesh>();
 
             tips = transform.Find("HandMenu/MenuContent/XvMedioRecordTips").GetComponent<XvMedioRecordTips>();
+            foreach (var button in GetComponentsInChildren<Microsoft.MixedReality.Toolkit.UI.Interactable>(true))
+                Singray.UI.MrtkClickGate.Install(button);
         }
 
 

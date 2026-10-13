@@ -331,6 +331,8 @@ namespace Singray.Foundation.SampleScenes
             }
             streamButtonConfig = streamTransform.GetComponentInChildren<ButtonConfigHelper>(true);
             if (streamButtonConfig != null) streamButtonConfig.MainLabelText = "Start Streaming";
+            foreach (var button in content.GetComponentsInChildren<Interactable>(true))
+                Singray.UI.MrtkClickGate.Install(button);
         }
 
         private static void ConfigureQuickButton(Transform button, float x, float y = 0f)

@@ -3358,7 +3358,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   routingTarget: {fileID: 954576978}
-  InteractableOnClick: 1
+  InteractableOnClick: 0
 --- !u!114 &954576982
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6058,7 +6058,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   routingTarget: {fileID: 1527071068}
-  InteractableOnClick: 1
+  InteractableOnClick: 0
 --- !u!114 &1527071070
 MonoBehaviour:
   m_ObjectHideFlags: 0
