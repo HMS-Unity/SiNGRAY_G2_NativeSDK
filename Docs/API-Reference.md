@@ -4,6 +4,8 @@ This reference describes the application-facing C# API in the `dev/4.2` source t
 
 For installation, scene selection, builds, and demos, see the [Demo and User Guide](Demo-and-User-Guide.md).
 
+For device keys and MRTK buttons, see [Keys and MRTK Buttons](Keys-and-Buttons.md) and the [Key Input API Guide](../Assets/XRFoundation/Core/Input/README.md). The input component is `Singray.InputSystem.SingrayKeyInput`; MRTK physical button protection is installed with `Singray.UI.MrtkClickGate.Install(Interactable)`.
+
 The current SDK version is `4.2.0.2`, exposed by `Singray.Foundation.VersionInfo.version` and aligned with the Android application version. `VersionInfo.Print()` logs the SDK version during XR initialization. See the [Release Notes](../RELEASE_NOTES.md) for the `4.2.0.x` update history. SDK version numbers do not identify the vendor AAR version or device firmware.
 
 ## 1. API layers

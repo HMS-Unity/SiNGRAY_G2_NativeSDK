@@ -4,6 +4,8 @@ This guide covers the `dev/4.2` Unity project, its sample applications, and the 
 
 For application interfaces, settings, events, and examples, see the [API Reference](API-Reference.md).
 
+For hardware-key setup, the key-input example, and MRTK button behavior, see [Keys and MRTK Buttons](Keys-and-Buttons.md). This includes checks for repeated actions when pressing and releasing hand-menu buttons.
+
 See the [Release Notes](../RELEASE_NOTES.md) for changes since October 6, 2026. The current Android version code is `2`; the SDK and application version are `4.2.0.2`.
 
 ## 1. Development environment

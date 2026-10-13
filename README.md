@@ -7,6 +7,8 @@ Native SDK and Unity integration for SiNGRAY G2 AR devices, including Android na
 - [Release Notes](RELEASE_NOTES.md): versioned development changes since October 6, 2026, validation results, and upgrade notes.
 - [Demo and User Guide](Docs/Demo-and-User-Guide.md): environment setup, demo scenes, Android builds, device operation, integration, and troubleshooting.
 - [API Reference](Docs/API-Reference.md): product interfaces, sensor settings, events, data types, Foundation feature managers, and native interop guidance.
+- [Keys and MRTK Buttons](Docs/Keys-and-Buttons.md): device-key setup, default mappings, MRTK press-cycle protection, and verification steps.
+- [Key Input API Guide](Assets/XRFoundation/Core/Input/README.md): complete C# examples, mapping profiles, event lifecycle, and simulation.
 
 ## Development branch
 
