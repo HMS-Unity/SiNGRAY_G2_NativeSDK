@@ -25,6 +25,10 @@ namespace Singray.Foundation.SampleScenes
         [SerializeField] private string currentSampleId;
         [SerializeField] private XvMediaRecorderManager mediaRecorderManager;
         [SerializeField] private ButtonConfigHelper recordButtonConfig;
+        [SerializeField] private ButtonConfigHelper streamButtonConfig;
+        private XvRTSPStreamerManager streamManager;
+        private Coroutine recordingPreparation;
+        private bool savingRecording;
 
         private Coroutine transitionRoutine;
         private GameObject activeSampleModule;
@@ -36,6 +40,7 @@ namespace Singray.Foundation.SampleScenes
             // before any sample module opens so it cannot bind to a temporary sensor
             // camera that will be destroyed during navigation.
             EnsureMediaRecorder();
+            EnsureStreamer();
             ShowCategory(0);
             SetSampleMode(false);
             SetStatus("Select a sample to begin");
@@ -90,6 +95,16 @@ namespace Singray.Foundation.SampleScenes
 
         public void ToggleMrRecording()
         {
+            if (savingRecording) return;
+            if (recordingPreparation != null)
+            {
+                StopCoroutine(recordingPreparation);
+                recordingPreparation = null;
+                ReleaseUnusedCapture();
+                SetRecordButtonLabel(false);
+                SetStatus("Recording cancelled");
+                return;
+            }
             if (!EnsureMediaRecorder())
             {
                 SetStatus("MR recorder is not available");
@@ -104,13 +119,93 @@ namespace Singray.Foundation.SampleScenes
 
             XvMRVideoCaptureManager captureManager = mediaRecorderManager.XvMRVideoCaptureManager;
             captureManager.CaptureType = CaptureType.MR;
-            mediaRecorderManager.StartRecording();
-            SetRecordButtonLabel(true);
-            SetStatus("MR recording started");
+            recordingPreparation = StartCoroutine(PrepareRecording());
+        }
+
+        private IEnumerator PrepareRecording()
+        {
+            SetStatus("Waiting for the MR camera...");
+            if (recordButtonConfig != null) recordButtonConfig.MainLabelText = "Cancel Recording";
+            mediaRecorderManager.StartCapture();
+            float deadline = Time.realtimeSinceStartup + 10f;
+            yield return null;
+            while (!mediaRecorderManager.IsCameraFrameReady() && Time.realtimeSinceStartup < deadline)
+                yield return null;
+            recordingPreparation = null;
+            if (!mediaRecorderManager.IsCameraFrameReady())
+            {
+                ReleaseUnusedCapture();
+                SetRecordButtonLabel(false);
+                SetStatus("No MR camera frame. Check the device camera and try again.");
+                yield break;
+            }
+            try
+            {
+                mediaRecorderManager.StartRecording();
+                SetRecordButtonLabel(mediaRecorderManager.IsVideoRecording());
+                SetStatus("MR recording started");
+            }
+            catch (System.Exception error)
+            {
+                Debug.LogException(error, this);
+                SetStatus("Recording failed. Check the device log.");
+                SetRecordButtonLabel(mediaRecorderManager.IsVideoRecording());
+            }
+        }
+
+        private void EnsureStreamer()
+        {
+            if (streamManager != null) return;
+            // Own the streamer at hub level so sample navigation cannot destroy it.
+            GameObject streamerObject = new GameObject("SDK Hub RTSP Streamer");
+            streamerObject.transform.SetParent(transform, false);
+            streamManager = streamerObject.AddComponent<XvRTSPStreamerManager>();
+            streamManager.autoStreaming = false;
+        }
+
+        public void ToggleRtspStreaming()
+        {
+            if (Application.platform != RuntimePlatform.Android)
+            {
+                SetStatus("RTSP streaming requires an Android device");
+                return;
+            }
+            EnsureStreamer();
+            try
+            {
+                if (streamManager.IsStreeaming)
+                {
+                    streamManager.StopRtspStreaming();
+                    ReleaseUnusedCapture();
+                    SetStatus("RTSP streaming stopped");
+                }
+                else
+                {
+                    streamManager.XvMRVideoCaptureManager.CaptureType = CaptureType.MR;
+                    streamManager.StartRtspStreaming();
+                    SetStatus("RTSP streaming started: rtsp://<device-ip>:8554/stream/");
+                }
+            }
+            catch (System.Exception error)
+            {
+                Debug.LogException(error, this);
+                SetStatus("Streaming failed. Check the device log.");
+            }
+            if (streamButtonConfig != null)
+                streamButtonConfig.MainLabelText = streamManager.IsStreeaming ? "Stop Streaming" : "Start Streaming";
+        }
+
+        private void ReleaseUnusedCapture()
+        {
+            if (mediaRecorderManager != null && !mediaRecorderManager.IsVideoRecording() &&
+                recordingPreparation == null && !savingRecording &&
+                (streamManager == null || !streamManager.IsStreeaming))
+                mediaRecorderManager.StopCapture(false);
         }
 
         private void StopMrRecording()
         {
+            if (savingRecording) return;
             if (mediaRecorderManager == null || !mediaRecorderManager.IsVideoRecording())
             {
                 SetRecordButtonLabel(false);
@@ -118,9 +213,12 @@ namespace Singray.Foundation.SampleScenes
             }
 
             SetStatus("Saving MR recording...");
+            savingRecording = true;
+            if (recordButtonConfig != null) recordButtonConfig.MainLabelText = "Saving...";
             mediaRecorderManager.StopRecording(path =>
             {
-                mediaRecorderManager.StopCapture(true);
+                savingRecording = false;
+                ReleaseUnusedCapture();
                 SetRecordButtonLabel(false);
                 SetStatus(string.IsNullOrEmpty(path) ? "MR recording stopped" : "Saved: " + path);
             });
@@ -182,17 +280,30 @@ namespace Singray.Foundation.SampleScenes
                 recordTransform.name = "MR Recording";
             }
 
-            ConfigureQuickButton(content.Find("Samples"), -0.17f);
-            ConfigureQuickButton(content.Find("Home"), -0.055f);
-            ConfigureQuickButton(content.Find("Hide"), 0.055f);
-            ConfigureQuickButton(recordTransform, 0.17f);
+            Transform streamTransform = content.Find("RTSP Streaming");
+            if (streamTransform == null)
+            {
+                streamTransform = Instantiate(recordTransform.gameObject, content).transform;
+                streamTransform.name = "RTSP Streaming";
+            }
+            ConfigureQuickButton(content.Find("Samples"), -0.115f);
+            ConfigureQuickButton(content.Find("Home"), 0f);
+            ConfigureQuickButton(content.Find("Hide"), 0.115f);
+            ConfigureQuickButton(recordTransform, -0.115f, -0.06f);
+            ConfigureQuickButton(streamTransform, 0.115f, -0.06f);
+            recordTransform.localScale = new Vector3(0.15f / 0.10f, 0.042f / 0.04f, 0.042f / 0.04f);
+            streamTransform.localScale = recordTransform.localScale;
 
             Transform backplate = content.Find("MRTK Backplate");
             if (backplate != null)
             {
                 Vector3 scale = backplate.localScale;
-                scale.x = 0.46f;
+                scale.x = 0.38f;
+                scale.y = 0.15f;
                 backplate.localScale = scale;
+                Vector3 platePosition = backplate.localPosition;
+                platePosition.y = -0.03f;
+                backplate.localPosition = platePosition;
             }
 
             Interactable recordInteractable = recordTransform.GetComponent<Interactable>();
@@ -202,7 +313,7 @@ namespace Singray.Foundation.SampleScenes
             }
             if (recordInteractable != null)
             {
-                recordInteractable.OnClick.RemoveAllListeners();
+                recordInteractable.OnClick = new UnityEngine.Events.UnityEvent();
                 recordInteractable.OnClick.AddListener(ToggleMrRecording);
             }
 
@@ -212,9 +323,17 @@ namespace Singray.Foundation.SampleScenes
                 recordButtonConfig = recordTransform.GetComponentInChildren<ButtonConfigHelper>(true);
             }
             SetRecordButtonLabel(false);
+            Interactable streamInteractable = streamTransform.GetComponentInChildren<Interactable>(true);
+            if (streamInteractable != null)
+            {
+                streamInteractable.OnClick = new UnityEngine.Events.UnityEvent();
+                streamInteractable.OnClick.AddListener(ToggleRtspStreaming);
+            }
+            streamButtonConfig = streamTransform.GetComponentInChildren<ButtonConfigHelper>(true);
+            if (streamButtonConfig != null) streamButtonConfig.MainLabelText = "Start Streaming";
         }
 
-        private static void ConfigureQuickButton(Transform button, float x)
+        private static void ConfigureQuickButton(Transform button, float x, float y = 0f)
         {
             if (button == null)
             {
@@ -222,6 +341,7 @@ namespace Singray.Foundation.SampleScenes
             }
             Vector3 position = button.localPosition;
             position.x = x;
+            position.y = y;
             button.localPosition = position;
         }
 
@@ -229,7 +349,7 @@ namespace Singray.Foundation.SampleScenes
         {
             if (recordButtonConfig != null)
             {
-                recordButtonConfig.MainLabelText = isRecording ? "Stop & Save" : "Start MR Rec";
+                recordButtonConfig.MainLabelText = isRecording ? "Stop Recording" : "Start Recording";
             }
         }
 
@@ -414,6 +534,7 @@ namespace Singray.Foundation.SampleScenes
 
         private void OnApplicationQuit()
         {
+            if (streamManager != null) streamManager.StopRtspStreaming();
             StopMrRecording();
         }
     }

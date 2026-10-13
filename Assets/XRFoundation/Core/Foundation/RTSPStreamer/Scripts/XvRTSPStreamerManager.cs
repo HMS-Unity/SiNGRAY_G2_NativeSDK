@@ -43,6 +43,7 @@ namespace Singray.Foundation
         public bool autoStreaming;
         private bool audioStreaming=false;
         private bool isStreeaming;
+        private bool initialized;
         public bool IsStreeaming { 
         get { return isStreeaming; } 
         }
@@ -94,6 +95,7 @@ namespace Singray.Foundation
                 AndroidHelper.CallObjectMethod(InterfaceObject, "nativeInit", new object[] { });
                 MyDebugTool.LogError("nativeInit end.....");
                 CreateTextureAndPassToPlugin();
+                initialized = true;
                 yield return StartCoroutine("CallPluginAtEndOfFrames");
             }
         }
@@ -164,7 +166,8 @@ namespace Singray.Foundation
                 MyDebugTool.LogWarning("Streaming is already in progress...");
                 return;
             }
-            isStreeaming = true;
+            if (Application.platform == RuntimePlatform.Android && !initialized)
+                throw new InvalidOperationException("RTSP streamer is not initialized yet.");
             XvMRVideoCaptureManager.StartCapture();
 
 
@@ -181,6 +184,7 @@ namespace Singray.Foundation
                 MyDebugTool.LogError("tvDisplayClicked");
                // Invoke("StartAudioCapture", 3);
             }
+            isStreeaming = true;
         }
 
         private bool initAudio;

@@ -233,20 +233,23 @@ namespace Singray.Foundation.SampleEditor
 
             GameObject content = new GameObject("Menu Content");
             content.transform.SetParent(handMenu.transform, false);
-            CreateBackplate(content.transform, "MRTK Backplate", new Vector3(0f, 0f, 0.014f), 0.46f, 0.095f);
+            CreateBackplate(content.transform, "MRTK Backplate", new Vector3(0f, -0.03f, 0.014f), 0.38f, 0.15f);
 
             Interactable samples = CreateMrtkButton(content.transform, "Samples", "Samples",
-                new Vector3(-0.17f, 0f, -0.012f), 0.095f, 0.042f);
+                new Vector3(-0.115f, 0f, -0.012f), 0.095f, 0.042f);
             Interactable home = CreateMrtkButton(content.transform, "Home", "Home",
-                new Vector3(-0.055f, 0f, -0.012f), 0.095f, 0.042f);
+                new Vector3(0f, 0f, -0.012f), 0.095f, 0.042f);
             Interactable hide = CreateMrtkButton(content.transform, "Hide", "Hide",
-                new Vector3(0.055f, 0f, -0.012f), 0.095f, 0.042f);
-            Interactable record = CreateMrtkButton(content.transform, "MR Recording", "Start MR Rec",
-                new Vector3(0.17f, 0f, -0.012f), 0.11f, 0.042f);
+                new Vector3(0.115f, 0f, -0.012f), 0.095f, 0.042f);
+            Interactable record = CreateMrtkButton(content.transform, "MR Recording", "Start Recording",
+                new Vector3(-0.115f, -0.06f, -0.012f), 0.15f, 0.042f);
+            Interactable stream = CreateMrtkButton(content.transform, "RTSP Streaming", "Start Streaming",
+                new Vector3(0.115f, -0.06f, -0.012f), 0.15f, 0.042f);
             UnityEventTools.AddPersistentListener(samples.OnClick, controller.ShowSamples);
             UnityEventTools.AddPersistentListener(home.OnClick, controller.ReturnHome);
             UnityEventTools.AddPersistentListener(hide.OnClick, controller.HideSamplesPanel);
             UnityEventTools.AddPersistentListener(record.OnClick, controller.ToggleMrRecording);
+            UnityEventTools.AddPersistentListener(stream.OnClick, controller.ToggleRtspStreaming);
 
             ButtonConfigHelper recordConfig = record.GetComponent<ButtonConfigHelper>();
             if (recordConfig == null)
@@ -255,6 +258,7 @@ namespace Singray.Foundation.SampleEditor
             }
             SerializedObject serializedController = new SerializedObject(controller);
             serializedController.FindProperty("recordButtonConfig").objectReferenceValue = recordConfig;
+            serializedController.FindProperty("streamButtonConfig").objectReferenceValue = stream.GetComponentInChildren<ButtonConfigHelper>(true);
             serializedController.ApplyModifiedPropertiesWithoutUndo();
 
             UnityEventTools.AddBoolPersistentListener(constraint.OnFirstHandDetected, content.SetActive, true);
