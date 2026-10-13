@@ -17,7 +17,7 @@ namespace Singray.G2
         private SingrayG2RgbSettings rgbSettings = new SingrayG2RgbSettings();
         private SingrayG2TofSettings tofSettings = new SingrayG2TofSettings();
         private double imuTimestamp;
-        private bool deviceEventsStarted;
+        private System.IDisposable deviceEventSubscription;
 
         public SingrayG2NativeBackend(Transform root)
         {
@@ -235,8 +235,8 @@ namespace Singray.G2
         public void StartDeviceEvents()
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
-            SystemBackend.XSlamStartEventStream(OnVendorDeviceEvent);
-            deviceEventsStarted = true;
+            if (deviceEventSubscription == null)
+                deviceEventSubscription = Singray.InputSystem.Internal.DeviceEventHub.Subscribe(OnVendorDeviceEvent, true);
 #else
             MyDebugTool.LogDiagnosticWarning("DEVICE_EVENT", "native-editor", "device events require a Singray G2 device", 0f);
 #endif
@@ -245,11 +245,8 @@ namespace Singray.G2
         public void StopDeviceEvents()
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
-            if (deviceEventsStarted)
-            {
-                SystemBackend.XSlamStopEventStream();
-                deviceEventsStarted = false;
-            }
+            deviceEventSubscription?.Dispose();
+            deviceEventSubscription = null;
 #endif
         }
 

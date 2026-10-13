@@ -14,7 +14,7 @@ namespace Singray.Foundation
         private XvSystemSettingManager() { }
 
         private int level = 6;
-        private static device_stream_callback userEventCallback;
+        private System.IDisposable deviceEventSubscription;
 
         /// <summary>
         /// Get the current brightness
@@ -78,35 +78,25 @@ namespace Singray.Foundation
         /// Listen for glasses button, wear-state and ambient-light events
         /// </summary>
         /// <param name="cb"></param>
-        public void XSlamStartEventStream(device_stream_callback cb) {
-
+        public void XSlamStartEventStream(device_stream_callback cb)
+        {
 #if UNITY_EDITOR
             return;
+#else
+            if (cb == null) throw new System.ArgumentNullException(nameof(cb));
+            deviceEventSubscription?.Dispose();
+            // Preserve the legacy native-thread callback contract. Each manager owns its subscription.
+            deviceEventSubscription = Singray.InputSystem.Internal.DeviceEventHub.Subscribe(data => cb(data), true, true);
 #endif
-            userEventCallback = cb;
-            int result = xslam_start_event_stream(OnDiagnosticDeviceEvent);
-            MyDebugTool.LogDiagnostic("DEVICE_EVENT", "start", $"xslam_start_event_stream result={result}", 0f);
         }
-
-        [MonoPInvokeCallback(typeof(device_stream_callback))]
-        private static void OnDiagnosticDeviceEvent(XvEvent xvEvent)
-        {
-            string category = xvEvent.type == 6 ? "LIGHT" : "DEVICE_EVENT";
-            MyDebugTool.LogDiagnostic(
-                category,
-                "event-" + xvEvent.type,
-                $"type={xvEvent.type} state={xvEvent.state} hostTs={xvEvent.hostTimestamp:F6} edgeTsUs={xvEvent.edgeTimestampUs}",
-                0f);
-            userEventCallback?.Invoke(xvEvent);
-        }
-
 
         public void XSlamStopEventStream()
         {
-            xslam_stop_event_stream();
-            userEventCallback = null;
-            MyDebugTool.LogDiagnostic("DEVICE_EVENT", "stop", "event stream stopped", 0f);
+            deviceEventSubscription?.Dispose();
+            deviceEventSubscription = null;
         }
+
+        private void OnDestroy() => XSlamStopEventStream();
 
        //Get the current volume
         public int GetVolumeCurrent()
