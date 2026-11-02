@@ -369,6 +369,15 @@ namespace Singray.Foundation.SampleEditor
 
             foreach (SampleDefinition sample in Categories.SelectMany(category => category.Samples))
             {
+                if (sample.Scene == "Rgbd" || sample.Scene == "MRVideoCapture" || sample.Scene == "SpatialMap" || sample.Scene == "SpatialMesh" || sample.Scene == "TagRecognizer" || sample.Scene == "StaticGesture")
+                {
+                    // Preserve configured modules and their host layouts during regeneration.
+                    string modulePath = ModuleFolder + "/" + sample.Scene + "SampleModule.prefab";
+                    GameObject module = AssetDatabase.LoadAssetAtPath<GameObject>(modulePath);
+                    if (module == null) throw new FileNotFoundException("Import the configured sample module.", modulePath);
+                    modules.Add(sample.Scene, module);
+                    continue;
+                }
                 if (sample.Scene == "Keyboard")
                 {
                     GameObject keyboardModule = CreateMrtkKeyboardModulePrefab();
@@ -573,9 +582,7 @@ namespace Singray.Foundation.SampleEditor
 
             foreach (EditorBuildSettingsScene existing in EditorBuildSettings.scenes)
             {
-                if (existing.path.Contains("/Joystick/") ||
-                    existing.path.EndsWith("/Joystick.unity") ||
-                    existing.path.StartsWith(SampleSceneFolder) ||
+                if (existing.path.StartsWith(SampleSceneFolder) ||
                     seen.Contains(existing.path))
                 {
                     continue;

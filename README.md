@@ -54,3 +54,11 @@ Actual Editor screenshot captured on October 7, 2026. It shows the Android targe
 Managed runtime and Editor compilation completed with no errors; existing warnings remain. Eight plane-parser checks passed. RGBD, ToF Point Cloud, Plane Detection, and Spatial Map still require regression testing on G2 hardware. These code changes do not establish that the reported device failures are resolved.
 
 This is a development build. Editor simulation does not validate native device behavior; test the selected features on the target G2 hardware and firmware before deployment. See the [device regression checklist](Docs/Demo-and-User-Guide.md#device-regression-checklist) for expected results and evidence to collect.
+
+## Sample lifecycle update (November 2026)
+
+The sample display name is **singray SDK**. CameraDemo, RGBD, point clouds, MR capture, spatial maps/meshes, tag recognition and static gestures received sample or lifecycle updates. Existing standalone, legacy-menu and Hub layouts are retained.
+
+Diagnostic APKs are built from this same Unity project with one standalone sample scene selected per build. The SDK Samples Hub remains a separate centralized entry scene using module prefabs; these tests did not merge all samples into one scene.
+
+See [change notes](Docs/SDK-Changes-20261102.txt) and [customer delivery plan](Docs/SDK-Customer-Delivery-Plan.txt) for scope, historical checks, user feedback and known limitations. User testing found no obvious issues in the exercised samples; this does not establish native reset root-cause resolution, full long-run coverage or clean customer-project acceptance.

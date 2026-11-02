@@ -1,0 +1,72 @@
+SiNGRAY Native SDK customer delivery plan
+Updated: 2026-11-02
+Repository: SiNGRAY G2 Native SDK; target branch: dev/4.2
+
+Delivery boundaries
+This repository delivers a customer SDK. Test APKs demonstrate individual features; they do not establish complete customer integration readiness.
+Keep three work areas distinct: required SDK/runtime and customer Editor setup assets; optional integration samples; internal diagnostics and validation tools.
+Application-specific medical, AR Engine and spatial-alignment development stays in separate application projects. Do not migrate application history into this repository.
+Preserve public interfaces, enum values, serialized references, asset GUIDs, required Resources paths and existing standalone/BaseScene/Hub layouts.
+Do not rebuild the Hub or introduce a new distribution format as incidental cleanup.
+
+Implemented sample work
+- CameraDemo: neutral sample naming, four fisheye channels, independent channel stop, RGB resolution switching and horizontal ToF preview mirroring.
+- RGBD: complete RgbdDemo prefab, retained XvRgbdDemo compatibility type, existing host previews/services and selected-pixel/world-point behavior; frame validity and shared stream ownership.
+- ToF point cloud: bounded refresh storage, lifecycle handling and distance colors; original density, particle size and API retained. Point-cloud sample renaming was not performed.
+- MRVideoCapture: complete configured prefab, existing host layouts, shared preview/record/stream occupancy, real-frame gates, capture cancellation and JPG worker waiting.
+- SpatialMap: complete prefab, original environment/object references, serialized content format, save/load/reset operation gate, callback/path correlation and nonempty-file checks; reusable feature particles.
+- SpatialMesh: complete prefab, shared reconstruction occupancy, latest update per map ID, Mesh/material reuse, explicit destruction and large-mesh index handling.
+- TagRecognizer: neutral prefab/component with legacy compatibility, original host defaults, shared native sessions/RGB occupancy, cancellable readiness, retained fisheye worker and bounded result storage.
+- StaticGesture: neutral prefab/component with legacy compatibility, corrected mappings for OpenHand/Call/Rock/Thumb/Pinch, independent frame snapshots, first-frame held state and safe lifecycle reset.
+Standalone scenes, legacy menu scenes and Hub modules retain their own layouts and existing services; newly embedded service duplicates are disabled where the host supplies them.
+The Hub generator reuses configured modules for RGBD, MRVideoCapture, SpatialMap, SpatialMesh, TagRecognizer and StaticGesture. It was not run to reconstruct the Hub.
+STM/Joystick removal and OCR sample cleanup were previously requested. Eye-tracking deletions already staged in the source checkout are excluded from this publication; preserve the remote eye-tracking implementation and required API/Editor entries.
+PlaneDetection was skipped at the user's request; its SDK capability was not deleted. Keyboard, MRTK2, ordinary MediaRecorder, RTSP and SystemSetting have not received equivalent complete sample consolidation in this round.
+
+Recorded validation (historical executions, not rerun merely for this document)
+Module             Layout/reference assertions   Managed runtime assertions
+RGBD               187                           47
+MRVideoCapture     1556                          35
+SpatialMap         2238                          25
+SpatialMesh        2819                          52
+TagRecognizer      6370                          52
+StaticGesture      350                           347
+Each listed module has an independent Android build/install record. On 2026-11-02, 143 module source/resource files matched their recorded build hashes.
+Viewer and point-cloud checks also have local device/build records. Numbers above are not a substitute for physical-device results.
+The user confirmed on 2026-11-02 that the tested samples showed no obvious issues. Record this as user-observed usability, not proof that every unmentioned scenario, firmware combination or long-run test passed.
+
+Known issues and limits
+- SpatialMap previously stalled in native pose locks during reset. Managed operation guards and a successful user session do not prove the native root cause is eliminated.
+- Native RGB recognizer logging was observed while the managed TagRecognizer mode was fisheye. Stop ordering/callback draining requires further correlation; no definitive native leak diagnosis was established.
+- Historical startup XvXREye.UpdateStereoValues null-reference reports remain recorded.
+- Two disabled measurement-line objects in the standalone TagRecognizer scene already have missing scripts. Preserve their objects/references; this round did not restore application code or silently delete them.
+- Point-cloud start/stop showed a short pause; main-thread ASC writing and broader capture cleanup remain separate follow-ups.
+- Long-run memory, every mode/size transition, exit/reentry and all cross-module combinations were not captured in every device session.
+- StaticGesture validity uses the existing provider's tracking flags. It does not independently establish native callback freshness or change the global hand tracker.
+- RGB callback ABI has no session token; very late callbacks after a later start require supplier/device verification.
+
+Device artifact identifiers (2026-10-30; installed without agent launch)
+RGBD:          4d3c5192c67c76ea35bf327bc9c879fc483446cc9908dda89df9bb517ad4d4d1
+MR capture:    aae97d2df53a3b7236aa3397c8e7cebb8b3a3418a8c693b9a44fa471a497cee6
+SpatialMap:    38a31fa4bbc07c55e6f72d261e5564bf9432967b4d442a51874e008e1160e6da
+SpatialMesh:   57fc9d318297170e01d3d4a1b13e80e80fabbfe66a6a76819a655ffcaef322ff
+TagRecognizer: 6a4754b3ecbf732d10859ee099b838ab178d6d3189412cec67c43ec5a8fb69c9
+StaticGesture: 45c4fb1a02c6c831243c4c3cfd2e186531a783e5844d99766b3af0442579a05f
+These are local diagnostic artifacts, not source-controlled SDK distribution packages. Their Launcher label was ToFViewer.
+The project display name is now singray SDK by explicit user request; package/version settings remain as currently configured. Previously built APK labels do not change automatically.
+
+Remaining customer delivery work
+B1: finish feature/entry/resource dependency inventory, including property-level host differences.
+B2: continue per-module consolidation only when requested; preserve host overrides.
+B3: review legacy variants and BaseScene retirement only after all generator dependencies and equivalent entries are verified.
+A1: document customer API boundaries, native buffer lifetime, coordinate/timestamp conventions and required initialization assets.
+A2: validate native reset synchronization, concurrent consumers, teardown, pause/resume and supported hardware/firmware combinations.
+C1: classify internal tools separately from required customer Editor setup and reproducible validation.
+D1: define distribution contents, dependencies/licenses and test import/build/init in a clean customer project. No distribution format has been frozen or official Release published.
+
+GitHub publication
+Target: HMS-Unity/SiNGRAY_G2_NativeSDK, dev/4.2.
+Local and remote histories have no common ancestor; their committed trees differed only in README before this publication. Base publication commits on the remote branch and preserve its Configure download/user-guide section. Never force-push unrelated local history.
+Publish separate English commits for cameras/point cloud/RGBD, MR recording, mapping/meshes, tags/gestures, authorized sample cleanup, and documentation/validation.
+Keep local archives, APKs, Unity caches and device logs out of source commits. Native AAR/TGZ dependencies remain in Git LFS.
+Detailed diagnostic evidence and source/index inventories remain under ignored Builds directories. The original source checkout and its staged eye deletions are preserved.

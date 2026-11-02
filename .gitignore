@@ -81,3 +81,6 @@ Assets/Editor.meta
 /.codex/
 /Exports/
 /Packages/com.coplaydev.unity-mcp/
+
+# Local full-project archive; keep it outside source uploads.
+/singray_Native_sdk.zip

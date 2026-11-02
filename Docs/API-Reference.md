@@ -254,11 +254,21 @@ Use `using Singray.Foundation;` for these managers. Most require device services
 
 Static `UnityEvent<cameraData>` events are `onARCameraStreamFrameArrived`, `onLeftStereoStreamFrameArrived`, `onRightStereoStreamFrameArrived`, `onTofDepthCameraStreamFrameArrived`, `onTofIRCameraStreamFrameArrived`, and `onWebCameraStreamFrameArrived`. Subscribe with `AddListener` and remove the same handler with `RemoveListener`.
 
+For indexed fisheye readers, construct `XvStereoCamera` with an `XvStereoCameraParameter` and a frame callback. `StereoCameraIndex.LeftEye = 0` and `RightEye = 1` retain their values; `Camera2 = 2` and `Camera3 = 3` address the additional physical channels. Call `StartCapture()`, tick `Update()` on Unity's main thread, and call `StopCapture()` when leaving or disabling the owner. The active index is captured at start; changed settings take effect on the next start. Channels 2/3 check the connected device's calibration count before indexed native reads and remain unavailable on two-camera devices. Do not infer physical mounting directions from indices 2/3.
+
+All `XvStereoCamera` readers share the native stream: the first reader starts it and the final reader stops it. Stop releases that reader's pinned buffer and texture. Returned `cameraData.tex` is borrowed and may be replaced or destroyed on resolution change/stop; do not retain it as a permanent image. `CameraDemo` demonstrates channels 2/3 with separate Start/Stop controls, while existing `XvCameraManager` left/right events remain unchanged.
+
 Point-cloud methods are `StartTofPointCloud()`, `GetPointCloudData(out Vector3[] data)`, and `StopTofPointCloud()`. ToF exposure overloads are `SetTofExposure(int exposureTimeMs)` and `SetTofExposure(int libmode, int resulution, int fps, float exposureTimeMs)`; preserve the supplier-specific parameter semantics.
 
 `XvRgbdManager` provides `StartRgbPose()`, `StopRgbPose()`, `GetRgbPixel3DPose(Vector2 rgbPoint, ref Vector3 spacePoint)`, and `GetRgbPixelPoseList(Vector2[] rgbPoint, ref pointer_3dpose[] spacePose)`.
 
-RGBD and point-cloud startup wait asynchronously for native SDK readiness, with a ten-second timeout. Start is a request, not a guarantee of available data. Stop cancels pending startup; RGBD also stops when its component is disabled. RGBD queries return false until running with a positive frame timestamp. Batch queries require non-null arrays and an output array at least as long as the input array. These Foundation native paths are guarded for Android players and do not provide Editor simulation.
+RGBD and point-cloud startup wait asynchronously for native SDK readiness, with a ten-second timeout. Start is a request, not a guarantee of available data. Stop cancels pending startup; RGBD also stops when its component is disabled. These Foundation native paths are guarded for Android players and do not provide Editor simulation.
+
+RGBD queries return false until running with a real RGB texture and a positive, finite timestamp. Duplicate/backward timestamps are ignored. Pixel bounds use the incoming texture's actual width/height, not the requested resolution metadata. Single-query failure leaves the caller's `spacePoint` unchanged; successful output retains the existing conversion to Unity coordinates (native Y negated). Batch queries require non-null arrays, finite in-bounds input pixels, and an output array at least as long as the input array. Only the input-count portion is processed; unused output-tail entries remain untouched. Check each entry's `isValid`; invalid/non-finite results are not world positions.
+
+RGBD managers share one native pixel-pose session and acquire internal RGB/depth capture ownership. The final RGBD manager stops that session; the streams stay active while another `XvCameraManager` owner still needs them. Public camera Start/Stop remains idempotent per manager instance, so callers sharing one manager must coordinate their own usage. Direct native start/stop calls bypass this ownership. Event textures are borrowed and may be replaced or destroyed by the camera backend on resolution change/stop; consumers must neither destroy nor retain them as immutable snapshots.
+
+`RgbdDemo` is the customer-facing sample component, derived from the retained `XvRgbdDemo` compatibility type. Its public `image`, `rawImage`, `RgbdManager`, and `CameraManager` members remain available, and the original serialized script GUID resolves to `RgbdDemo`. The sample handles preview UV/material orientation, actual frame dimensions, a two-second freshness check, and invalid world-point hiding; callers using `XvRgbdManager` directly must implement any required freshness policy themselves.
 
 ### Spatial understanding
 
@@ -269,7 +279,21 @@ RGBD and point-cloud startup wait asynchronously for native SDK readiness, with 
 | `XvSpatialMapManager` | `StartSlamMap()`, `SaveSlamMap()`, `LoadSlamMap(string mapPath)`, `GetFeaturePoint()` | Save returns a path; static save/load/matching events report progress or completion |
 | `XvTagRecognizerManager` | `StartTagDetector(RecognizerMode recognizerMode)`, `StopTagDetector()`, `SetDetectStatus(bool isDetect)` | Configure and consume results as shown in the TagRecognizer sample |
 
+`XvSpatialMeshManager` keeps its existing API/event signatures. Startup waits for SDK readiness without blocking the main thread (ten-second timeout); Stop and disable cancel pending startup. Manager instances share native reconstruction registration and release only their own scanning ownership. The final owner disables reconstruction. The callback registration ID is logged as a raw native value; its success/failure enum is not inferred. Native initialization is assumed to remain alive for the application session; restarting the native SDK independently requires supplier verification.
+
+`meshChanged` remains a static callback-thread event. Payload lists are managed copies of the borrowed native buffers; native pointers are never destroyed or retained. Consumers touching Unity objects must dispatch to the Unity main thread themselves. Remove listeners during teardown. `XvSpatialMeshVisualizer` performs its own main-thread dispatch/coalescing, keeps `MeshDic`, `autoDetection`, `AutoDetection`, `EnableCollider`, `EnableRender`, `SetCollider(bool)` and `SetVisualizer(bool)`, and preserves the original Y inversion and triangle winding. Generated Mesh objects are owned by the visualizer; do not destroy them externally.
+
+`XvTagRecognizerManager` retains `XvCameraManager`, `TagGroupName`, `Size`, `Confidence`, `RecognizerMode`, `OnDetectedAprilTagEvent`, `StartTagDetector(RecognizerMode)`, `StopTagDetector()` and `SetDetectStatus(bool)`. `RecognizerMode` keeps numeric values None=0, RGB_QRCode=1, RGB_Apriltag=2 and FishEye_Apriltag=3; `CameraType` remains Rgb=0/FishEye=1. `XvAprilTag` retains its public RGB/fisheye start/read/stop methods and `TagArrayCallback`; `TagDetection` fields remain compatible. Raw native count handling is bounded to the declared 64-tag ABI array; missing arrays, nonfinite pose data and invalid callback counts are rejected. Native pointers are borrowed and never freed by managed consumers.
+
+Tag results are dispatched on the main thread once per render frame while active. The latest copied result may be reused between native updates for up to two seconds; this is not a unique-frame guarantee. Empty/expired results and explicit stop report a null result. Found/Lost and per-target pose freeze retain their existing event/control semantics. Use a valid physical `Size` in meters. A changed size/family restarts a single-owner session; shared sessions reject conflicting configuration changes. Stop releases only the caller's camera occupancy, and final-owner stop closes the native detector. Fisheye cleanup may remain pending if its native call does not return; new recognition requests must wait. Direct `XvAprilTag` or native calls bypass manager ownership.
+
+The RGB callback ABI supplies no session token. Cancelled in-flight callbacks cannot publish to their captured session, but an old callback first delivered after a later same-mode start cannot be conclusively identified in managed code. Native stop/callback-drain guarantees require supplier/device verification. No native libraries are changed by this cleanup. The required Resources paths `XvTagRecognizerManager` and `XvTagRecognizerBehavior` remain intact.
+
 Spatial-map events are `onMapSaveCompleteEvent` (`UnityEvent<int, int>`), `onMapLoadCompleteEvent` (`UnityEvent<int>`), and `onMapMatchingEvent` (`UnityEvent<float>`). Their native codes are not translated into a product-level status enum.
+
+SpatialMap retains `StartSlamMap()`, `SaveSlamMap()`, `LoadSlamMap(string mapPath)`, `ShowFeaturePoint`, `SwitchFeaturePointState()` and `GetFeaturePoint()`, along with existing timestamp helpers and event signatures. The sample's Create Map action resets SLAM to a new scanning origin; it does not produce a saved map file. Save is a separate request. Accepted save/load requests share an operation gate across managers; duplicate requests and reset during an outstanding save/load are rejected. `SaveSlamMap()` returns null if busy, unready, or rejected by the native bool result. Loading checks for a nonempty existing file, then waits for reset/fresh-pose recovery before submitting the native load; a rejected load is not reported as completed. Existing native callbacks retain their raw status/quality values, whose success enums still require supplier confirmation.
+
+Callbacks are dispatched on the Unity main thread. In-flight operation completion survives disabling its manager; disabling one scene does not discard the shared callback queue. Localization similarity updates coalesce to the latest value between updates, so they do not accumulate indefinitely while no map scene is active. A native completion timeout reports that the operation is still pending and retains its gate; it does not cancel an unsafe native operation or authorize overlapping requests. These protections do not prove that the known supplier pose-lock stall during `xslam_reset_slam` is resolved.
 
 `StartPlaneDetction()` uses a cancellable readiness coroutine with a ten-second timeout instead of blocking the Unity main thread. `StopPlaneDetection()` and component disable cancel pending startup. Plane payload parsing validates declared lengths and counts before reading or allocating; rejected data is not a valid plane result. These checks cannot recover from a crash inside the native implementation.
 
@@ -280,6 +304,11 @@ Use `SwitchFeaturePointState()` to toggle feature-point acquisition and inspect 
 Map callbacks are queued and their UnityEvents are invoked from the manager's `Update()` on the main thread. Keep the manager active while awaiting results. Disabling it stops an active feature-point stream and clears queued events; it does not establish cancellation of a native save/load operation. Delegates are retained in static fields for native callback lifetime. Use a single active map manager and remove your event listeners during teardown.
 
 ### Gestures
+
+Static-gesture compatibility is retained: `XvStaticGestureManager.GetCurrentStaticGesture(HandType)`, `GetKeyDown(StaticGestureStatus gestureStatus, HandType handType)`, `GetKeyUp(StaticGestureStatus buttonKey, HandType handType)` and `GetKey(StaticGestureStatus buttonKey, HandType handType)` keep their signatures/named arguments. Public `GestureState` and `GestureKeyState` constructors, query/update methods and `buttonKeyDic` remain available. `StaticGestureStatus` preserves UNKONOW=-1 and GRAB=0 through Pinch=9; `HandType` keeps None=0, Left=1, Right=2.
+
+A manager lazily initializes state for safe queries before Start. Its queries share one render-frame snapshot; GetKey is true on the same first frame as GetKeyDown, and GetKeyUp is a one-frame pulse after release/tracking loss. Disabled/paused managers return cleared local state. Direct helper users still explicitly call `GestureState.Update()` / `GestureKeyState.LateUpdate()` and are responsible for their own update cadence. Numeric keyboard simulation remains additive to native input. Invalid/untracked source data cannot become a default GRAB. `GetCurrentStaticGesture` reports native tracking status; keyboard simulation affects key-state queries only. Component teardown resets its state and does not stop the shared native hand tracker.
+
 
 `XvStaticGestureManager` provides:
 
@@ -299,6 +328,12 @@ Use transition queries during the frame update loop. Keep the hand-input and MRT
 Wait for frame readiness before capturing useful output. Stop-recording and screenshot callbacks provide output paths; wait for completion before disposing dependent objects. Create the recorder from the configured `Resources/XvMediaRecorderManager` prefab as the hub does, or supply equivalent references.
 
 `XvMRVideoCaptureManager` exposes `StartCapture()`, `StopCapture(bool closeCamera = false)`, and the `HasFrame` property. `XvRTSPStreamerManager` exposes `StartRtspStreaming()` and `StopRtspStreaming()`; configure its serialized settings using the RTSP sample.
+
+MR compositor APIs, enum values, asset GUIDs and the `Resources/XvMRVideoCaptureManager` path are preserved. `CaptureType` remains `OnlyCamera`, `OnlyUnityScene`, or `MR`; `CameraManager`, `BgCamera`, `CameraRenderTexture` and `IsOn` remain available. RGB/MR readiness requires a real texture, valid positive intrinsics, and a positive finite timestamp; duplicate/backward timestamps are ignored. Unity-only readiness follows its render loop. The preview/camera are held back before valid RGB, and calibration offsets are recomputed from the original background position on each frame rather than accumulated across restarts.
+
+SDK preview, recording and RTSP consumers have separate internal compositor ownership and share RGB capture leases. A consumer's stop retains resources still needed by another. Public Start/Stop is idempotent for the existing public caller; `StopCapture(false)` preserves the underlying RGB camera through the existing camera-manager owner, which can later call `StopCapture(ARCameraStream)`. Disabled/destroyed compositors unsubscribe, clear borrowed RGB, and release their output when no native output holder remains. RTSP retains the same texture pointer while initialized and releases that retention on disable. Output textures are borrowed and may be destroyed on final release; cached references must be refreshed after restart. The output size follows configured camera dimensions at allocation and remains stable while borrowed.
+
+`StartRecording()` waits up to ten seconds for readiness if needed. `IsVideoRecording()` also reports a pending recording request, allowing the existing toggle/Stop API to cancel preparation; stopping a pending request reports a null path. Screenshot callbacks return null on timeout/cancellation/save failure, and JPG input/writer cleanup completes on disable. The optional `MRVideoCaptureDemo` excludes the UI layer from composite output while active, without changing layout transforms; this sample behavior is not a restriction on the standalone SDK compositor's configured mask. Device encoding, audio, native plugin pointer timing and physical alignment remain hardware validation items.
 
 ### System settings
 
@@ -331,7 +366,7 @@ Calls such as `readRGBCalibration`, `readToFCalibration`, and stereo calibration
 
 ### Binding and namespace migration
 
-The separate `XvNativeAPI` class has been removed. Its 19 distinct declarations now reside in the global `API` class under `Additional xv-wrapper bindings`, with their original native library, entry points, and signatures preserved. Replace `XvNativeAPI.Method(...)` with `API.Method(...)` in application code.
+The separate `XvNativeAPI` class has been removed. Its 15 remaining declarations reside in the global `API` class under `Additional xv-wrapper bindings`, with their original native library, entry points, and signatures preserved. Replace `XvNativeAPI.Method(...)` with `API.Method(...)` in application code.
 
 | Return type | Migrated declaration |
 | --- | --- |
@@ -344,11 +379,7 @@ The separate `XvNativeAPI` class has been removed. Its 19 distinct declarations 
 | `void` | `stopTofStream()` |
 | `bool` | `setPmdTofIRFunction()` |
 | `int` | `xv_start_skeleton_ex_with_cb()` |
-| `int` | `start_et_gaze_callback()` |
 | `bool` | `xvReadStereoFisheyesCalibration()` |
-| `bool` | `stm_start()` |
-| `bool` | `stm_stop()` |
-| `void` | `xv_controller_register()` |
 | `void` | `xv_recognize_from_local(string name)` |
 | `void` | `xv_audio_recognize_switch_source(int source)` |
 | `bool` | `xv_get_prob(double[] poseData)` |

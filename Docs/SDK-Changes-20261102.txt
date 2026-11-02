@@ -1,0 +1,42 @@
+SiNGRAY Native SDK sample and lifecycle changes
+Date: 2026-11-02
+Target: HMS-Unity/SiNGRAY_G2_NativeSDK, dev/4.2
+
+Changes
+- CameraDemo: four fisheye channels, independent channel controls, ToF mirroring and RGB resolution/texture lifecycle handling.
+- RGBD: configured reusable prefab, compatibility type, actual-frame pixel mapping, world-point validity and shared sensor ownership.
+- ToF point cloud: refresh/lifecycle improvements and distance colors while retaining size, density and APIs.
+- MRVideoCapture: configured services, compositor ownership, real-frame capture gates, cancellation and JPG writer waiting.
+- SpatialMap: serialized operation gate, native result checks, callback/path correlation, nonempty map records and reusable feature particles.
+- SpatialMesh: shared scanning, latest-surface dispatch, Mesh/material reuse, explicit resource destruction and UInt32 indices.
+- TagRecognizer: retained fisheye worker, serialized transitions, shared RGB occupancy and empty/stale result handling.
+- StaticGesture: corrected five mappings, independent down/hold/up snapshots, missing/untracked data guards and pause/disable reset.
+- Samples: neutral customer-facing names with reference/GUID migration and retained compatibility types where applicable. Preserve independent scene, legacy menu and Hub layouts; do not rebuild the Hub.
+- Cleanup: remove previously requested STM/Joystick content and OCR sample entries. Keep unrelated staged eye-tracking deletion out of this publication.
+- Project display name: singray SDK. Existing package/version settings are retained.
+
+Build structure
+One Unity SDK project contains separate standalone sample scenes. Each diagnostic APK was built using exactly one selected sample scene, not a newly merged scene.
+The SDK Samples Hub is a separate centralized entry scene that instantiates module prefabs. Legacy BaseScene/menu scenes remain compatible hosts.
+Customers can integrate optional complete demo prefabs into an SDK-initialized XR scene; those prefabs do not replace the XR rig or native initialization.
+
+Validation
+The user confirmed on 2026-11-02 that the tested samples showed no obvious issues.
+Historical layout/runtime assertion counts: RGBD 187/47; MR 1556/35; SpatialMap 2238/25; SpatialMesh 2819/52; TagRecognizer 6370/52; StaticGesture 350/347.
+These modules have individual Android build/install records. Source-hash comparison covered 143 module files without a mismatch before publication preparation.
+Managed simulation, successful APK compilation and user-observed usability have distinct scopes. Do not describe them as complete SDK delivery acceptance.
+
+Known issues
+Native SpatialMap pose-lock reset stalls were not proven fixed at the native layer. TagRecognizer native RGB logging during managed fisheye operation still needs stop/drain correlation. Historical startup XvXREye.UpdateStereoValues exceptions and two disabled legacy measurement objects with missing scripts remain recorded.
+Point-cloud transition pauses, sustained memory, all mode/size combinations, scene reentry, physical accuracy and a clean customer integration project remain separate verification work.
+
+Publication boundaries
+Commits use the existing remote dev/4.2 history as parent; no force push or application-history migration.
+Preserve the remote README Configure links. Retain the remote eye-tracking files/API/Editor entries because their staged deletion belongs to separate source-checkout work.
+Do not upload local full-project ZIPs, APKs, logs, Unity caches or private diagnostic captures. Required native AAR and MRTK TGZ dependencies keep their LFS tracking.
+Internal unapproved product-scope drafts remain local. Customer setup/API documentation and clearly marked source validation tools are included.
+
+References
+Docs/API-Reference.md
+Docs/Demo-and-User-Guide.md
+Docs/SDK-Customer-Delivery-Plan.txt
