@@ -317,24 +317,10 @@ namespace Singray.Foundation
             }, "StaticGesture");
         }
 
-        [MenuItem("Singray/Toolkit/Build Scenes/SeerPadController", false, 0)]
-        static void SeerPadController()
-        {
-            BuildScenes(new[]
-            {
-                "Assets/XRFoundation/SampleScenes/Joystick/Scenes/SeerPadController.unity",
-            }, "SeerPadController");
-        }
 
 
-        [MenuItem("Singray/Toolkit/Build Scenes/Joystick", false, 0)]
-        static void Joystick()
-        {
-            BuildScenes(new[]
-            {
-                "Assets/XRFoundation/SampleScenes/Joystick/Scenes/Joystick.unity",
-            }, "Joystick");
-        }
+
+
 
         [MenuItem("Singray/Toolkit/Build Scenes/TofPointCloud", false, 0)]
         static void TofPointCloud()
@@ -402,7 +388,6 @@ namespace Singray.Foundation
                 "Assets/XRFoundation/SampleScenes/SDKSamples/Scenes/Keyboard.unity",
                 "Assets/XRFoundation/SampleScenes/SDKSamples/Scenes/Gaze.unity",
                 "Assets/XRFoundation/SampleScenes/SDKSamples/Scenes/StaticGesture.unity",
-                "Assets/XRFoundation/SampleScenes/SDKSamples/Scenes/Joystick.unity",
                 "Assets/XRFoundation/SampleScenes/SDKSamples/Scenes/TofPointCloud.unity",
                 "Assets/XRFoundation/SampleScenes/SDKSamples/Scenes/IRToWorld.unity",
             }, "BaseScene");

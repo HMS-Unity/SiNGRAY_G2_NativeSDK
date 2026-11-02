@@ -1051,129 +1051,8 @@ public class API : MonoBehaviour
     [DllImport("xslam-unity-wrapper")]
     public static extern IntPtr xslam_get_slam_map(ref int count);
 
-    // BLE I500
-    [StructLayout(LayoutKind.Sequential)]
-    public struct WirelessPos
-    {
-        public int type;
-        public Vector3 position;
-        public Vector4 quaternion;
-        public float confidence;
-        public int keyTrigger;
-        public int keySide;
-        public int rocker_x;
-        public int rocker_y;
-        public int keyA;
-        public int keyB;
-    };
-
-    public enum WirelessType
-    {
-        LEFT = 0,
-        RIGHT = 1
-    };
-
-    public enum WirelessSlamMode
-    {
-        VIO = 1,
-        CSLAM = 2,
-        SHARE_MAP = 3
-    };
-
-    /// <summary>
-    /// Get controller battery and temperature data
-    /// battery: charge level (0-100)
-    /// temp: temperature (0-100)
-    /// </summary>
-    public struct WirelessControllerDeviceInfo
-    {
-        public int battery;
-        public int temp;
-        public int sleep;
-        public int charging;
-    };
-
-    public delegate void WirelessPoseCallback(ref WirelessPos pose);
-    public delegate void wirelessScanCallback(IntPtr name, IntPtr mac);
-    public delegate void wirelessUploadCallback(bool ret);
-
-    [DllImport("xslam-unity-wrapper")]
-    public static extern void xv_wireless_start();
-
-    [DllImport("xslam-unity-wrapper")]
-    public static extern void xv_wireless_stop();
-
-    [DllImport("xslam-unity-wrapper")]
-    public static extern void xv_wireless_register(WirelessPoseCallback callback);
-
-    [DllImport("xslam-unity-wrapper")]
-    public static extern void xv_wireless_scan(wirelessScanCallback callback);
-
-    [DllImport("xslam-unity-wrapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
-    public static extern void xv_wireless_connect(string name, string mac);
-
-    [DllImport("xslam-unity-wrapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
-    public static extern void xv_wireless_upload_map(string path, wirelessUploadCallback callback);
-
-    // type:WirelessType
-    [DllImport("xslam-unity-wrapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
-    public static extern bool xv_wireless_pair(int type, string name, string mac);
-
-    // type:WirelessType mode:WirelessSlamMode
-    [DllImport("xslam-unity-wrapper")]
-    public static extern bool xv_wireless_set_slam_type(int type, int mode);
-
-    // type:WirelessType return:WirelessSlamMode  1 vio 3 sharemap 2 cslam
-    [DllImport("xslam-unity-wrapper")]
-    public static extern int xv_wireless_get_slam_type(int type);
-
     [DllImport("xslam-unity-wrapper")]
     public static extern bool xv_rgb_device_get_rgba(int width, int height, System.IntPtr data1, System.IntPtr data2);
-
-
-
-
-    /// <summary>
-    /// Get controller information
-    /// </summary>
-    /// <param name="info">See the corresponding structure for parameters</param>
-    /// <param name="type">See the corresponding structure for parameters</param>
-    [DllImport("xslam-unity-wrapper")]
-    public static extern void xv_wireless_get_device_info(ref WirelessControllerDeviceInfo info, int type);
-
-    public enum WirelessState
-    {
-        DISCONNECT = 0,
-        CONNECTED = 1
-    };
-    public delegate void WirelessStateCallback(IntPtr name, IntPtr mac, int state);
-
-    [DllImport("xslam-unity-wrapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
-    public static extern void xv_wireless_disconnect(string name, string mac);
-
-    [DllImport("xslam-unity-wrapper")]
-    public static extern void xv_wireless_register_state(WirelessStateCallback callback);
-
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
-    public struct StmData
-    {
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 3)]
-        public float[] offset;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 3)]
-        public float[] angles;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 3)]
-        public float[] magnetic;
-        public int level;
-    };
-
-    [DllImport("xslam-unity-wrapper")]
-    public static extern bool xv_stm_start();
-
-    [DllImport("xslam-unity-wrapper")]
-    public static extern bool xv_stm_stop();
-
-    [DllImport("xslam-unity-wrapper")]
-    public static extern bool xv_stm_get_stream(ref StmData data);
 
     [DllImport("xslam-unity-wrapper")]
     public static extern bool xslam_switch_audio(bool status);
@@ -1263,6 +1142,8 @@ public class API : MonoBehaviour
     [DllImport("xv-wrapper")]
     public static extern int xv_start_skeleton_ex_with_cb();
 
+
+
     /// <summary>
     /// Start the eye-tracking stream and register gazeCallback
     /// </summary>
@@ -1270,32 +1151,12 @@ public class API : MonoBehaviour
     [DllImport("xv-wrapper")]
     public static extern int start_et_gaze_callback();
 
-
     /// <summary>
     /// Read stereo fisheye camera calibration parameters
     /// </summary>
     /// <returns>True if calibration parameters are read successfully; otherwise false</returns>
     [DllImport("xv-wrapper")]
     public static extern bool xvReadStereoFisheyesCalibration();
-
-    /// <summary>
-    /// Start magnetometer acquisition and register STMDataCallback
-    /// </summary>
-    /// <returns>True if magnetometer acquisition starts successfully</returns>
-    [DllImport("xv-wrapper")]
-    public static extern bool stm_start();
-
-    /// <summary>
-    /// Stop magnetometer acquisition and unregister the callback
-    /// </summary>
-    /// <returns>True if magnetometer acquisition stops successfully</returns>
-    [DllImport("xv-wrapper")]
-    public static extern bool stm_stop();
-
-    //Register the controller callback
-    [DllImport("xv-wrapper")]
-    public static extern void xv_controller_register();
-
 
     //Recognize local audio
     [DllImport("xv-wrapper")]

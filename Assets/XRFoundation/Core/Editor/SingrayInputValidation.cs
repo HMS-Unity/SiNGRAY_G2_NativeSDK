@@ -14,8 +14,7 @@ namespace Singray.Foundation
         public static void Run()
         {
             string[] paths = {
-                "Assets/XRFoundation/Core/Sdk/MRTK/Profiles/XvXR Hand MixedRealityInputSystemProfile.asset",
-                "Assets/XRFoundation/Core/Sdk/Joystick/XvXR Joystick MixedRealityInputSystemProfile.asset"
+                "Assets/XRFoundation/Core/Sdk/MRTK/Profiles/XvXR Hand MixedRealityInputSystemProfile.asset"
             };
             foreach (string path in paths)
             {
@@ -23,7 +22,7 @@ namespace Singray.Foundation
                 Require(profile != null && profile.ControllerMappingProfile != null, "Missing profile: " + path);
                 var serialized = new SerializedObject(profile);
                 Require(serialized.FindProperty("enableControllerMapping").boolValue, "Controller mapping disabled.");
-                foreach (Type type in new[] { typeof(XvXRController), typeof(XvXRJoystickController) })
+                foreach (Type type in new[] { typeof(XvXRController) })
                 foreach (Handedness side in new[] { Handedness.Left, Handedness.Right })
                 {
                     var matches = profile.ControllerMappingProfile.MixedRealityControllerMappings
@@ -44,7 +43,7 @@ namespace Singray.Foundation
             var synchronizer = prefab.GetComponent<ControllerPoseSynchronizer>();
             Require(synchronizer != null && !synchronizer.UseSourcePoseData && synchronizer.PoseAction.Id == 4,
                 "Hand pointer must consume Pointer Pose action 4.");
-            Debug.Log("Singray MRTK mapping validation PASSED: both profiles resolve left/right controller types and actions; pointer consumes action 4, distinct from grip action 3.");
+            Debug.Log("Singray MRTK mapping validation PASSED: hand profile resolves left/right controller types and actions; pointer consumes action 4, distinct from grip action 3.");
         }
         private static void Require(bool valid, string message)
         {

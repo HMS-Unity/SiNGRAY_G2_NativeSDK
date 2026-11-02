@@ -356,32 +356,7 @@ namespace Singray.Foundation
 
         }
 
-        [MenuItem("GameObject/Singray XR/XvFoundation/XvJoystickManager", false, 0)]
-        static void CreateXvJoystickManager()
-        {
 
-            XvJoystickManager xvJoystickManager = FindObjectOfType<XvJoystickManager>();
-
-            if (xvJoystickManager == null)
-            {
-
-                GameObject newObj = Instantiate(Resources.Load<GameObject>("XvJoystickManager"));
-
-                newObj.name = "XvJoystickManager";
-                xvJoystickManager = newObj.GetComponent<XvJoystickManager>();
-
-                Undo.RegisterCreatedObjectUndo(newObj, newObj.name);
-
-            }
-            else
-            {
-                Debug.LogWarning("XvJoystickManager already exists in the scene");
-            }
-
-            Selection.activeObject = xvJoystickManager.gameObject;
-
-
-        }
         
 
         [MenuItem("GameObject/Singray XR/XvFoundation/XvHeadGazeInputController", false, 12)]
