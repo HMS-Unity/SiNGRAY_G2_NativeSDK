@@ -44,6 +44,7 @@ namespace Singray.Foundation
         private bool audioStreaming=false;
         private bool isStreeaming;
         private bool initialized;
+        private Coroutine pluginRoutine;
         public bool IsStreeaming { 
         get { return isStreeaming; } 
         }
@@ -97,12 +98,18 @@ namespace Singray.Foundation
                 MyDebugTool.LogError("nativeInit end.....");
                 CreateTextureAndPassToPlugin();
                 initialized = true;
-                yield return StartCoroutine("CallPluginAtEndOfFrames");
+                pluginRoutine = StartCoroutine(CallPluginAtEndOfFrames());
             }
+            yield break;
         }
 
         private void OnEnable()
         {
+            if (initialized && Application.platform == RuntimePlatform.Android)
+            {
+                CreateTextureAndPassToPlugin();
+                if (pluginRoutine == null) pluginRoutine = StartCoroutine(CallPluginAtEndOfFrames());
+            }
             if (autoStreaming) {
                 CancelInvoke();
                 Invoke("StartRtspStreaming", 5);
@@ -126,10 +133,15 @@ namespace Singray.Foundation
         {
             CancelInvoke();
             StopRtspStreaming();
+            if (pluginRoutine != null) StopCoroutine(pluginRoutine);
+            pluginRoutine = null;
+            if (xvMRVideoCaptureManager != null) xvMRVideoCaptureManager.ReleaseOutput(this);
+            wifiCameraRenderTexture = null;
         }
         private void CreateTextureAndPassToPlugin()
         {
             MyDebugTool.Log("GetRenderEventFunc start.... renderInit");
+            XvMRVideoCaptureManager.RetainOutput(this);
             wifiCameraRenderTexture = XvMRVideoCaptureManager.CameraRenderTexture;
             MyDebugTool.Log(wifiCameraRenderTexture.width + "     height:" + wifiCameraRenderTexture.height);
             SetCameraTextureFromUnity(wifiCameraRenderTexture.GetNativeTexturePtr(), wifiCameraRenderTexture.width, wifiCameraRenderTexture.height);
@@ -147,6 +159,7 @@ namespace Singray.Foundation
 
                 // Wait until all frame rendering is done
                 yield return new WaitForEndOfFrame();
+                if (!isActiveAndEnabled || !isStreeaming || wifiCameraRenderTexture == null) continue;
                 //MyDebugTool.Log("GetRenderEventFunc start.... renderDraw");
 
                 GL.IssuePluginEvent(GetRenderEventFunc(), renderDraw);
@@ -169,11 +182,12 @@ namespace Singray.Foundation
             }
             if (Application.platform == RuntimePlatform.Android && !initialized)
                 throw new InvalidOperationException("RTSP streamer is not initialized yet.");
-            XvMRVideoCaptureManager.StartCapture();
-
-
+            XvMRVideoCaptureManager.AcquireCapture(this);
+            try
+            {
             if (Application.platform == RuntimePlatform.Android)
             {
+                CreateTextureAndPassToPlugin();
 
                 StartAudioCapture();
 
@@ -188,6 +202,8 @@ namespace Singray.Foundation
                // Invoke("StartAudioCapture", 3);
             }
             isStreeaming = true;
+            }
+            catch { XvMRVideoCaptureManager.ReleaseCapture(this, true); throw; }
         }
 
         private bool initAudio;
@@ -257,6 +273,7 @@ namespace Singray.Foundation
 
                 }
                 isStreeaming = false;
+                if (xvMRVideoCaptureManager != null) xvMRVideoCaptureManager.ReleaseCapture(this, true);
             }
         }
        

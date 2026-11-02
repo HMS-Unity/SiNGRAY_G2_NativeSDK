@@ -1,4 +1,4 @@
-﻿using NatSuite.Recorders;
+using NatSuite.Recorders;
 using NatSuite.Recorders.Clocks;
 using NatSuite.Recorders.Inputs;
 using UnityEngine;
@@ -21,7 +21,7 @@ public class JPG : SingletonMonoBehaviour<JPG>
     private bool isRecording;
     public bool IsRecording
     {
-        get { return isRecording; }
+        get { return isRecording || finishing; }
     }
 
 
@@ -29,83 +29,68 @@ public class JPG : SingletonMonoBehaviour<JPG>
 
 
     private UnityAction<string> callback;
+    private bool finishing;
+    private int generation;
     public void SaveScreenshot(UnityAction<string> callback)
     {
-       
-        if (isRecording)
-        {
-            MyDebugTool.LogError("Screenshot capture in progress...");
-            return;
-        }
+        if (isRecording || finishing || !isActiveAndEnabled || cam == null)
+        { callback?.Invoke(null); return; }
         this.callback = callback;
         isRecording = true;
-
-        recorder = new JPGRecorder(imageWidth, imageHeight);
-        cameraInput = new CameraInput(recorder, new RealtimeClock(), cam);
-        cameraInput.frameSkip = 1000;
-        MyDebugTool.Log(" SaveScreenshot "+ imageWidth+"  "+ imageHeight);
-       
-        Invoke("StopRecording", 0.5f);
+        try
+        {
+            recorder = new JPGRecorder(imageWidth, imageHeight);
+            cameraInput = new CameraInput(recorder, new RealtimeClock(), cam);
+            cameraInput.frameSkip = 1000;
+            Invoke(nameof(StopRecording), 0.5f);
+        }
+        catch (Exception error)
+        {
+            Debug.LogError("[MR-PHOTO] capture failed: " + error.Message);
+            CancelScreenshot();
+        }
     }
-
-    
-    private async void StopRecording()
+    private async void StopRecording() => await FinishScreenshot(true);
+    internal void CancelScreenshot()
     {
-        if (!isRecording)
-        {
-            return;
-        }
-        isRecording = false;
-
-        cameraInput.Dispose();
-        var path = await recorder.FinishWriting();
-        MyDebugTool.Log($"Saved animated jpg image to: {path}");
-        var prefix = Application.platform == RuntimePlatform.IPhonePlayer ? "file://" : "";
-
-
-
-
-
-        // Application.OpenURL($"{prefix}{path}");
-
-
-#if PLATFORM_ANDROID && !UNITY_EDITOR
-try { 
-        if (!Directory.Exists("/storage/emulated/0/DCIM/Screenshots"))
-        {
-        Directory.CreateDirectory("/storage/emulated/0/DCIM/Screenshots");
-        }
-        
-        string path2 = "/storage/emulated/0/DCIM/Screenshots/" + getDate() + ".jpg";; 
-        File.Copy(path+"/1.jpg", path2);
-        callback?.Invoke(path2);
-         MyDebugTool.LogError("Save completed");
-         }catch ( Exception e ) { 
-         MyDebugTool.LogError("Save Exception:"+e.Message);
-        }
-#endif
-
-
-
-#if UNITY_EDITOR
-
-        string dirPath = Path.GetFileName(path);
-
-        string rootPath = Application.dataPath.Replace("Assets/", "");
-        if (!Directory.Exists(rootPath + "/Screenshots"))
-        {
-            Directory.CreateDirectory(rootPath + "/Screenshots");
-        }
-        string path_configData = rootPath + "/Screenshots/" + dirPath + ".jpg";
-       
-
-        Debug.LogError(path_configData+"  "+ dirPath);
-        File.Copy(path + "/1.jpg", path_configData);
-        callback?.Invoke(path_configData);
-
-#endif
-
+        generation++;
+        CancelInvoke(nameof(StopRecording));
+        _ = FinishScreenshot(false);
     }
+    private async System.Threading.Tasks.Task FinishScreenshot(bool save)
+    {
+        if (!isRecording) return;
+        isRecording = false; finishing = true;
+        int requestGeneration = generation;
+        var input = cameraInput; cameraInput = null;
+        var current = recorder; recorder = null;
+        var complete = callback; callback = null;
+        string result = null;
+        try
+        {
+            string path = null;
+            try { input?.Dispose(); }
+            finally { if (current != null) path = await current.FinishWriting(); }
+            if (save && this != null && isActiveAndEnabled && generation == requestGeneration && path != null)
+            {
+                string directory = Application.platform == RuntimePlatform.Android
+                    ? "/storage/emulated/0/DCIM/Screenshots"
+                    : Path.Combine(Path.GetDirectoryName(Application.dataPath), "Screenshots");
+                string destination = Path.Combine(directory, getDate() + "_" + Guid.NewGuid().ToString("N").Substring(0,8) + ".jpg");
+                await System.Threading.Tasks.Task.Run(() =>
+                {
+                    Directory.CreateDirectory(directory);
+                    File.Copy(Path.Combine(path, "1.jpg"), destination);
+                });
+                if (this != null && isActiveAndEnabled && generation == requestGeneration) result = destination;
+                MyDebugTool.LogDiagnostic("MR-PHOTO", "saved", "saved=" + destination, 0f);
+            }
+        }
+        catch (Exception error) { Debug.LogError("[MR-PHOTO] save failed: " + error.Message); }
+        finally { finishing = false; complete?.Invoke(result); }
+    }
+    private void OnDisable() => CancelScreenshot();
+    private void OnDestroy() => CancelScreenshot();
 
     private static string getDate()
     {

@@ -38,7 +38,6 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0, g: 0, b: 0, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -430,10 +429,18 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3235426672596431871, guid: 20fec93dbfb50c94b9a217043ea486aa, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6813626312338019215, guid: 20fec93dbfb50c94b9a217043ea486aa, type: 3}
       propertyPath: captureManager
       value: 
       objectReference: {fileID: 5626330496332898790}
+    - target: {fileID: 7865028987002342573, guid: 20fec93dbfb50c94b9a217043ea486aa, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 8706597071533349228, guid: 20fec93dbfb50c94b9a217043ea486aa, type: 3}
       propertyPath: m_Name
       value: MRVideoCaptureDemo

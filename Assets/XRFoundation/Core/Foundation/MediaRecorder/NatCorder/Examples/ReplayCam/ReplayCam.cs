@@ -146,7 +146,8 @@ namespace NatSuite.Examples {
             {
                 if (mrVideoCaptureManager == null)
                 {
-                    mrVideoCaptureManager = FindObjectOfType<XvMRVideoCaptureManager>();
+                    mrVideoCaptureManager = cam != null ? cam.GetComponentInParent<XvMRVideoCaptureManager>() : null;
+                    if (mrVideoCaptureManager == null) mrVideoCaptureManager = FindObjectOfType<XvMRVideoCaptureManager>();
                 }
                 return mrVideoCaptureManager;
             }

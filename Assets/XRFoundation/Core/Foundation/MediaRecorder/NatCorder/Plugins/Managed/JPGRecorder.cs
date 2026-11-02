@@ -51,10 +51,10 @@ namespace NatSuite.Recorders {
                     // Dequeue
                     byte[] frameData;
                     lock ((writeQueue as ICollection).SyncRoot)
-                        if (writeQueue.Count > 0)
-                            frameData = writeQueue.Dequeue();
-                        else
-                            continue;
+                    {
+                        while (writeQueue.Count == 0) System.Threading.Monitor.Wait((writeQueue as ICollection).SyncRoot);
+                        frameData = writeQueue.Dequeue();
+                    }
                     // Write out
                     if (frameData != null)
                         File.WriteAllBytes(Path.Combine(recordingPath, ++frameIndex + ".jpg"), frameData);
@@ -95,7 +95,10 @@ namespace NatSuite.Recorders {
             var frameData = ImageConversion.EncodeToJPG(framebuffer);
             // Write out on a worker thread
             lock ((writeQueue as ICollection).SyncRoot)
+            {
                 writeQueue.Enqueue(frameData);
+                System.Threading.Monitor.Pulse((writeQueue as ICollection).SyncRoot);
+            }
         }
 
         /// <summary>
@@ -110,8 +113,15 @@ namespace NatSuite.Recorders {
         [Doc(@"FinishWriting", @"FinishWritingDiscussion")]
         public Task<string> FinishWriting () {
             lock ((writeQueue as ICollection).SyncRoot)
+            {
                 writeQueue.Enqueue(null); // EOS
+                System.Threading.Monitor.Pulse((writeQueue as ICollection).SyncRoot);
+            }
+#if UNITY_EDITOR
+            if (!Application.isPlaying) Texture2D.DestroyImmediate(framebuffer); else Texture2D.Destroy(framebuffer);
+#else
             Texture2D.Destroy(framebuffer);
+#endif
             return recordingTask;
         }
         #endregion

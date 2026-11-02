@@ -275,7 +275,7 @@ namespace Singray.Foundation
             }
             tips.HideTips();
             XvMediaRecorderManager.SaveScreenshot((filePath) => {
-                tips.ShowTips("Saved to: " + filePath,1);
+                tips.ShowTips(string.IsNullOrEmpty(filePath) ? "Photo capture failed or canceled" : "Saved to: " + filePath,1);
                 ScreenshotTips.gameObject.SetActive(false);
                 isScreenshot = false;
             });
