@@ -112,9 +112,9 @@ Use the SDK subscription APIs; calling the underlying native event start/stop fu
 
 ## Example and validation
 
-Open `Assets/XRFoundation/SampleScenes/KeyInput/KeyInput.unity` for a minimal simulation/event-log example. It has no initialized native device rig: for hardware testing, add the input prefab to an existing NativeSDK scene instead. The example is optional and outside the runtime module.
+Open `Assets/XRFoundation/SampleScenes/KeyInput/Scenes/KeyInput.unity` for the standard XR sample. It includes the existing SDK rig and an Editor-visible world-space panel. Editor Play Mode shows simulation controls; Android listens to device events and hides those controls. To integrate into an already initialized SDK XR scene, add only `SampleScenes/KeyInput/Prefabs/KeyInputDemo.prefab` so no second XR rig is created. The optional legacy `SingrayKeyInputExample` OnGUI component remains available but is not attached to the standard scene.
 
-**Singray > Input > Validate Key Input** runs deterministic event/lifecycle checks and Android player-script compilation. Its report is `Builds/KeyInput/validation.txt`. **Singray > Input > Create Key Input Example Scene** recreates the example and prefab without replacing the active scene.
+**Singray > Input > Validate Key Input** runs deterministic event/lifecycle checks and Android player-script compilation. Its report is `Builds/KeyInput/validation.txt`. **Singray > Input > Create Key Input Example Scene** regenerates the optional standard sample and prefab. A different saved active scene is preserved; save an unsaved or modified target scene first.
 
 **Singray > Input > Run Key Input Play Validation** tests the actual runtime pump, C# and Inspector events, multiple components, cancellation, re-enable, and disable-on-release behavior. Save the active scene first. The test restores the original scene when complete; its report is `Builds/KeyInput/play-validation.txt`.
 

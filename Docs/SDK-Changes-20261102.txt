@@ -40,3 +40,5 @@ References
 Docs/API-Reference.md
 Docs/Demo-and-User-Guide.md
 Docs/SDK-Customer-Delivery-Plan.txt
+
+KeyInput follow-up: replace the previously minimal standalone example with an Editor-visible world-space event panel, complete content prefab and initialized SDK XR host. Preserve runtime APIs, legacy diagnostic type and scene GUID. Update generator/test paths, add a single-scene build menu and document mapping limits. Recorded 23 core checks, 15 runtime UI checks and 27 Android assemblies. Device behavior is pending; no install or launch was performed.

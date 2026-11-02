@@ -32,7 +32,7 @@ namespace Singray.InputSystem.Editor
                 CheckProcessor();
                 CheckHub();
                 CheckSubscriberIsolation();
-                if (!File.Exists("Assets/XRFoundation/SampleScenes/KeyInput/KeyInput.unity")) CreateExample();
+                if (!File.Exists("Assets/XRFoundation/SampleScenes/KeyInput/Scenes/KeyInput.unity")) Debug.Log("Optional KeyInput scene not imported; validating the runtime module without generating sample assets.");
                 Directory.CreateDirectory("Builds/KeyInput");
                 var settings = new ScriptCompilationSettings { target = BuildTarget.Android, group = BuildTargetGroup.Android, options = ScriptCompilationOptions.None };
                 var result = PlayerBuildInterface.CompilePlayerScripts(settings, "Builds/KeyInput/AndroidScripts");
@@ -171,32 +171,9 @@ namespace Singray.InputSystem.Editor
         public static void CreateExample()
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode) throw new Exception("Stop Play Mode first.");
-            Directory.CreateDirectory(Root + "/Profiles");
-            const string profilePath = Root + "/Profiles/NativeSDKDefault.asset";
-            if (!AssetDatabase.LoadAssetAtPath<SingrayKeyMappingProfile>(profilePath))
-            {
-                var profile = ScriptableObject.CreateInstance<SingrayKeyMappingProfile>();
-                AssetDatabase.CreateAsset(profile, profilePath);
-            }
-            const string path = "Assets/XRFoundation/SampleScenes/KeyInput/KeyInput.unity";
-            Directory.CreateDirectory(Path.GetDirectoryName(path));
-            AssetDatabase.Refresh();
-            var original = SceneManager.GetActiveScene();
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
-            try
-            {
-                var go = new GameObject("Singray Key Input");
-                go.AddComponent<SingrayKeyInput>();
-                Directory.CreateDirectory(Root + "/Prefabs");
-                PrefabUtility.SaveAsPrefabAsset(go, Root + "/Prefabs/SingrayKeyInput.prefab");
-                var exampleType = typeof(SingrayKeyInput).Assembly.GetType("Singray.Samples.SingrayKeyInputExample");
-                if (exampleType != null) go.AddComponent(exampleType);
-                var camera = new GameObject("Main Camera").AddComponent<Camera>();
-                camera.tag = "MainCamera"; camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = new Color(.04f, .06f, .09f);
-                if (!EditorSceneManager.SaveScene(scene, path)) throw new Exception("Example scene could not be saved.");
-            }
-            finally { EditorSceneManager.CloseScene(scene, true); if (original.IsValid()) SceneManager.SetActiveScene(original); }
-            AssetDatabase.SaveAssets();
+            var builder = typeof(SingrayKeyInputValidation).Assembly.GetType("Singray.Samples.Editor.KeyInputDemoSceneBuilder");
+            if (builder == null) throw new InvalidOperationException("Import the optional KeyInput sample to create its standard XR scene.");
+            builder.GetMethod("BuildSample", BindingFlags.Public | BindingFlags.Static).Invoke(null, null);
         }
     }
 }

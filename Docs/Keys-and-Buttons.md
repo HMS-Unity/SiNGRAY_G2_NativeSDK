@@ -69,7 +69,7 @@ After runtime installation, do not replace `button.OnClick` or bind business act
 For device keys:
 
 1. In Play Mode, use **Input Simulation** in the input component's Inspector. Confirm one down/up/click sequence per simulated click and signed rotary steps.
-2. Use `Assets/XRFoundation/SampleScenes/KeyInput/KeyInput.unity` for event logging. This example has no initialized device rig; add the input prefab to an existing SDK device scene for hardware tests.
+2. Use `Assets/XRFoundation/SampleScenes/KeyInput/Scenes/KeyInput.unity` for the standard XR event-monitor sample. Its panel is visible before Play Mode. For an existing initialized SDK scene, add only `KeyInput/Prefabs/KeyInputDemo.prefab` to avoid duplicating the XR rig. Editor simulation is separate from physical device verification.
 3. Run **Singray > Input > Validate Key Input** and **Singray > Input > Run Key Input Play Validation**. Reports are written under `Builds/KeyInput`.
 4. On G2, check all key mappings, rapid knob rotation, simultaneous keys, pause/resume, and disconnect/reconnect while a key is held. Cancellation should not produce a click.
 

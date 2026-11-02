@@ -31,7 +31,7 @@ namespace Singray.InputSystem.Editor
                 throw new Exception("Save the active scene and use a single scene before Play validation.");
             SessionState.SetString(Original, scene.path);
             SessionState.SetBool(Active, true);
-            EditorSceneManager.OpenScene("Assets/XRFoundation/SampleScenes/KeyInput/KeyInput.unity");
+            EditorSceneManager.OpenScene("Assets/XRFoundation/SampleScenes/KeyInput/Scenes/KeyInput.unity");
             Attach();
             EditorApplication.isPlaying = true;
         }
