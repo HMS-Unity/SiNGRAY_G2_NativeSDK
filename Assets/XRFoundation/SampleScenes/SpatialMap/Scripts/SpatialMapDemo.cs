@@ -49,6 +49,7 @@ namespace Singray.Foundation.SampleScenes
         private Text logText;
         private ParticleSystem.Particle[] allParticles;
         private string map_Path;
+        private bool pendingSave, pendingLoad;
 
         public Button mapItem;
 
@@ -60,7 +61,8 @@ namespace Singray.Foundation.SampleScenes
 
             if (xvSpatialMapManager == null)
             {
-                xvSpatialMapManager = FindObjectOfType<XvSpatialMapManager>();
+                xvSpatialMapManager = GetComponentInChildren<XvSpatialMapManager>(true);
+                if(xvSpatialMapManager==null) xvSpatialMapManager = FindObjectOfType<XvSpatialMapManager>();
             }
 
             if (xvSpatialMapManager == null)
@@ -105,7 +107,7 @@ namespace Singray.Foundation.SampleScenes
                         {
 
                             FileInfo file_info = new FileInfo(mapContentInfos[i].mapPath);
-                            if (!file_info.Exists)
+                            if (!file_info.Exists || file_info.Length==0)
                             {
                                 MyDebugTool.LogError("delete：" + mapContentInfos[i].mapPath);
                                 mapContentInfos.RemoveAt(i);
@@ -119,7 +121,8 @@ namespace Singray.Foundation.SampleScenes
                         RefrashUI();
                     }
                     else {
-                        MyDebugTool.LogError("mapContentInfos is null");
+                        mapContentInfos = new List<MapContentInfo>();
+                        MyDebugTool.Log("No saved spatial maps yet.");
                     }
 
 
@@ -148,10 +151,25 @@ namespace Singray.Foundation.SampleScenes
             XvSpatialMapManager.onMapSaveCompleteEvent.RemoveListener(onSaveComplete);
             XvSpatialMapManager.onMapLoadCompleteEvent.RemoveListener(onLoadComplete);
             XvSpatialMapManager.onMapMatchingEvent.RemoveListener(onMapSimilarity);
+            pendingSave=pendingLoad=false;
+            if(featurePointParticle!=null){featurePointParticle.Clear();featurePointParticle.Stop();featurePointParticle.gameObject.SetActive(false);}
+            allParticles=null;
         }
 
+        private string lastResetStatus;
         private void Update()
         {
+            if(xvSpatialMapManager==null) return;
+            if (lastResetStatus != xvSpatialMapManager.OperationStatus)
+            {
+                lastResetStatus = xvSpatialMapManager.OperationStatus;
+                Log(lastResetStatus);
+            }
+            if (xvSpatialMapManager.IsBusy)
+            {
+                Log(xvSpatialMapManager.OperationStatus);
+                return;
+            }
             if (xvSpatialMapManager.ShowFeaturePoint)
             {
                 if (Time.frameCount % 5 == 0)
@@ -177,18 +195,28 @@ namespace Singray.Foundation.SampleScenes
 
         public void CreateMap()
         {
+            if(xvSpatialMapManager==null) return;
             xvSpatialMapManager.StartSlamMap();
-            Log ("Scan map");
+            if (xvSpatialMapManager.IsResetting)
+            {
+                if (featurePointParticle != null) { featurePointParticle.Clear(); featurePointParticle.gameObject.SetActive(false); }
+                if (featurePointText != null) featurePointText.text = "ShowFeaturePoint";
+            }
+            Log(xvSpatialMapManager.OperationStatus);
         }
 
         public void SaveMap()
         {
-            map_Path = xvSpatialMapManager.SaveSlamMap();
-
-            Log("Saving map");
+            if(xvSpatialMapManager==null) return;
+            if (xvSpatialMapManager.IsBusy) { Log(xvSpatialMapManager.OperationStatus); return; }
+            string requestedPath=xvSpatialMapManager.SaveSlamMap();
+            if(string.IsNullOrEmpty(requestedPath)){Log(xvSpatialMapManager.OperationStatus);return;}
+            map_Path=requestedPath;pendingSave=true;pendingLoad=false;
+            Log("Saving map; waiting for native callback");
         }
 
         public void SwitchFeaturePointState() {
+            if(xvSpatialMapManager==null) return;
           
             xvSpatialMapManager.SwitchFeaturePointState();
 
@@ -210,39 +238,27 @@ namespace Singray.Foundation.SampleScenes
         }
         private void DrawPointCloud(List<Vector3> drawList)
         {
+            if(featurePointParticle==null || drawList==null) return;
             featurePointParticle.gameObject.SetActive(true);
-            if (featurePointParticle != null)
-            {
-                featurePointParticle.Clear();
-                // particleSystem = null;
-                System.GC.Collect();
-            }
-
-            var main = featurePointParticle.main;
-            main.startSpeed = 0.0f;                           // Set the initial particle velocity to zero
-            main.startLifetime = 1000000.0f;
-
-            var pointCount = drawList.Count;
-            allParticles = new ParticleSystem.Particle[pointCount];
-            main.maxParticles = pointCount;
-            featurePointParticle.Emit(pointCount);
-            featurePointParticle.GetParticles(allParticles);
-
-            for (int i = 0; i < pointCount; i++)
-            {
-                allParticles[i].position = (Vector3)drawList[i];
-
-            }
-
-            featurePointParticle.SetParticles(allParticles, pointCount);      // Load the point cloud into the particle system
-
+            var main=featurePointParticle.main;
+            int count=drawList.Count;
+            if(allParticles==null || allParticles.Length<count) allParticles=new ParticleSystem.Particle[count];
+            if(count>0 && main.maxParticles!=count) main.maxParticles=count;
+            float lifetime=Mathf.Max(1,main.startLifetime.constantMax);
+            var color=main.startColor.color;float size=main.startSize.constantMax;
+            for(int i=0;i<count;i++) allParticles[i]=new ParticleSystem.Particle{position=drawList[i],startColor=color,startSize=size,startLifetime=lifetime,remainingLifetime=lifetime};
+            if(count>0 && !featurePointParticle.isPaused){featurePointParticle.Play(false);featurePointParticle.Pause(false);}
+            featurePointParticle.SetParticles(allParticles,count);
         }
-
 
         private void onSaveComplete(int status_of_saved_map, int map_quality)
         {
-            Log("Map saved successfully");
-            MyDebugTool.Log("Map saved successfully");
+            if(!pendingSave || xvSpatialMapManager==null || xvSpatialMapManager.CompletedSavePath!=map_Path) return;
+            pendingSave=false;
+            lastResetStatus=xvSpatialMapManager.OperationStatus;
+            if(string.IsNullOrEmpty(map_Path)||!File.Exists(map_Path)||new FileInfo(map_Path).Length==0)
+            {Log("Save callback received, but map file is missing or empty. status="+status_of_saved_map+" quality="+map_quality);return;}
+            Log("Map file ready. Native status="+status_of_saved_map+" quality="+map_quality);
             SaveGameobject();
 
             RefrashUI();
@@ -251,8 +267,11 @@ namespace Singray.Foundation.SampleScenes
 
         private void onLoadComplete(int map_quality)
         {
+            if(!pendingLoad || xvSpatialMapManager==null || xvSpatialMapManager.CompletedLoadPath!=map_Path) return;
+            pendingLoad=false;
+            lastResetStatus=xvSpatialMapManager.OperationStatus;
             MyDebugTool.Log("Map loading completed");
-            Log("Map loading completed");
+            Log("Load callback received. Native quality="+map_quality+"; matching is reported separately.");
 
             LoadGameobject();
 
@@ -270,8 +289,9 @@ namespace Singray.Foundation.SampleScenes
 
 
             List<GameObjectInfo> gameObjectInfoList = new List<GameObjectInfo>();
-            for (int i = 0; i < saveGameObject.Count; i++)
+            for (int i = 0; saveGameObject!=null && i < saveGameObject.Count; i++)
             {
+                if(saveGameObject[i]==null) continue;
                 GameObjectInfo objInfo = new GameObjectInfo();
                 objInfo.t_x = saveGameObject[i].transform.position.x;
                 objInfo.t_y = saveGameObject[i].transform.position.y;
@@ -344,13 +364,14 @@ namespace Singray.Foundation.SampleScenes
                 MyDebugTool.Log("mapContentInfos==null");
             }
 
-            if (mapContentInfo != null)
+            if (mapContentInfo != null && mapContentInfo.gameObjectInfos!=null && saveGameObject!=null)
             {
 
                 for (int i = 0; i < mapContentInfo.gameObjectInfos.Count; i++)
                 {
                     for (int j = 0; j < saveGameObject.Count; j++)
                     {
+                        if(saveGameObject[j]==null) continue;
 
                         if (saveGameObject[j].name == mapContentInfo.gameObjectInfos[i].o_name)
                         {
@@ -446,7 +467,7 @@ namespace Singray.Foundation.SampleScenes
                 for (int i = 0; i < mapContentInfos.Count; i++)
                 {
 
-                    if (File.Exists(mapContentInfos[i].mapPath))
+                    if (File.Exists(mapContentInfos[i].mapPath) && new FileInfo(mapContentInfos[i].mapPath).Length>0)
                     {
                         MyDebugTool.Log("RefrashUI" + mapContentInfos.Count);
                         Button button = Instantiate(mapItem.gameObject, mapItem.transform.parent).GetComponent<Button>();
@@ -454,9 +475,13 @@ namespace Singray.Foundation.SampleScenes
                         button.onClick.AddListener(() =>
                         {
 
-                            map_Path = map;
+                            if(xvSpatialMapManager==null) return;
+                            if(xvSpatialMapManager.IsBusy){Log(xvSpatialMapManager.OperationStatus);return;}
+                            if(!File.Exists(map)||new FileInfo(map).Length==0){Log("Map file is missing or empty.");return;}
+                            map_Path = map;pendingLoad=true;pendingSave=false;
                             xvSpatialMapManager.LoadSlamMap(map_Path);
-                            Log("loading map：" + map_Path);
+                            pendingLoad=xvSpatialMapManager.IsBusy;
+                            Log(xvSpatialMapManager.OperationStatus);
 
 
                         });

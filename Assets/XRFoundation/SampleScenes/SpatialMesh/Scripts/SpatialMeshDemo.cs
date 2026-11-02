@@ -13,9 +13,9 @@ namespace Singray.Foundation.SampleScenes
 {
     public class SpatialMeshDemo : MonoBehaviour
     {
-        // [SerializeField]
+        [SerializeField]
         private XvSpatialMeshManager xvSpatialMeshManager;
-        //[SerializeField]
+        [SerializeField]
         private XvSpatialMeshVisualizer xvSpatialMeshVisualizer;
 
         private TextMeshPro meshText;
@@ -24,6 +24,10 @@ namespace Singray.Foundation.SampleScenes
 
         private void Awake()
         {
+            if (xvSpatialMeshManager == null)
+            {
+                xvSpatialMeshManager = GetComponentInChildren<XvSpatialMeshManager>();
+            }
             if (xvSpatialMeshManager == null)
             {
                 xvSpatialMeshManager = FindObjectOfType<XvSpatialMeshManager>();
@@ -41,8 +45,14 @@ namespace Singray.Foundation.SampleScenes
 
             if (xvSpatialMeshVisualizer == null)
             {
+                xvSpatialMeshVisualizer = GetComponentInChildren<XvSpatialMeshVisualizer>();
+            }
+            if (xvSpatialMeshVisualizer == null)
+            {
                 xvSpatialMeshVisualizer = FindObjectOfType<XvSpatialMeshVisualizer>();
             }
+            if (xvSpatialMeshVisualizer == null)
+                xvSpatialMeshVisualizer = xvSpatialMeshManager.GetComponent<XvSpatialMeshVisualizer>();
 
             meshText = transform.Find("UI/Canvas/MeshDetection/IconAndText/TextMeshPro").GetComponent<TextMeshPro>();
             colliderText = transform.Find("UI/Canvas/MeshCollider/IconAndText/TextMeshPro").GetComponent<TextMeshPro>();
@@ -85,13 +95,19 @@ namespace Singray.Foundation.SampleScenes
 
         private void Update()
         {
+            if (meshText != null && xvSpatialMeshManager != null)
+            {
+                string state = xvSpatialMeshManager.IsStarting ? "Starting..." :
+                    xvSpatialMeshManager.IsDetecting ? "StopDetection" : "StartDetection";
+                if (meshText.text != state) meshText.text = state;
+            }
             AddArrow();
             AddLine();
         }
 
         public void SetMeshDetection()
         {
-            if (xvSpatialMeshManager.IsDetecting)
+            if (xvSpatialMeshManager.IsDetecting || xvSpatialMeshManager.IsStarting)
             {
                 xvSpatialMeshManager.StopMeshDetection();
 
@@ -192,6 +208,7 @@ namespace Singray.Foundation.SampleScenes
                         }
 
                         Transform newArrow=  Instantiate(arrow);
+                        newArrow.SetParent(transform, true);
                         newArrow.position = hit.point;
                         newArrow.rotation = Quaternion.LookRotation(ray.direction);
                         arrowList.Add(newArrow);
@@ -210,6 +227,7 @@ namespace Singray.Foundation.SampleScenes
                             return;
                         }
                         Transform newArrow = Instantiate(arrow);
+                        newArrow.SetParent(transform, true);
                         newArrow.position = hit.point;
                         newArrow.rotation = Quaternion.LookRotation(ray.direction);
                         arrowList.Add(newArrow);
@@ -245,6 +263,7 @@ namespace Singray.Foundation.SampleScenes
                             return;
                         }
                         Transform newArrow = Instantiate(line);
+                        newArrow.SetParent(transform, true);
                         leftLineRenderer = newArrow.GetComponent<LineRenderer>();
                         leftLineRenderer.positionCount = 1;
                         leftLineRenderer.SetPosition(leftLineRenderer.positionCount - 1 , hit.point);
@@ -288,6 +307,7 @@ namespace Singray.Foundation.SampleScenes
                         }
 
                         Transform newArrow = Instantiate(line);
+                        newArrow.SetParent(transform, true);
 
                         rightLineRenderer = newArrow.GetComponent<LineRenderer>();
                         rightLineRenderer.positionCount = 1;
@@ -321,12 +341,20 @@ namespace Singray.Foundation.SampleScenes
         }
 
         private void ClearLine() {
+           leftLineRenderer = null;
+           rightLineRenderer = null;
            while (lineList.Count > 0)
             {
                 Destroy(lineList[0].gameObject);
                 lineList.RemoveAt(0);
 
             }
+        }
+
+        private void OnDisable()
+        {
+            if (xvSpatialMeshManager != null) xvSpatialMeshManager.StopMeshDetection();
+            ClearArrow(); ClearLine(); markType = -1;
         }
 
     }

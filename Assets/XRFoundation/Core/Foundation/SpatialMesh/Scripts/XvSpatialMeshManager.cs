@@ -1,7 +1,9 @@
 using AOT;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading;
 using UnityEngine;
 namespace Singray.Foundation
 {
@@ -34,14 +36,20 @@ namespace Singray.Foundation
             }
         }
 
-        private static XslamSurface[] objdata;
         public static int meshSurfaceId;
-        private bool isCreatMesh = false;
+        private static bool isCreatMesh;
+        private static readonly HashSet<XvSpatialMeshManager> detectionOwners = new HashSet<XvSpatialMeshManager>();
+        private static int activeOwners;
+        private static Func<bool> readyNative = NativeReady;
+        private static Func<int> startNative = () => API.xslam_start_surface_callback(true, false, OnStartSurfaceCallback);
+        private static Action<bool> enableNative = API.xslam_enable_surface_reconstruction;
        
         public static event Action<NowXslamSurface> meshChanged;
 
 
         private bool isDetecting;
+        private Coroutine startRoutine;
+        internal bool IsStarting => startRoutine != null;
         public bool IsDetecting
         {
             get { return isDetecting; }
@@ -53,39 +61,64 @@ namespace Singray.Foundation
         /// </summary>
         public void StartMeshDetection()
         {
-            if (!isDetecting)
+            if (isActiveAndEnabled && !isDetecting && startRoutine == null)
             {
-                isDetecting = true;
+                Debug.Log("[MESH-LIFE] start requested; waiting for SDK readiness.");
+                startRoutine = StartCoroutine(StartDetectionWhenReady(Time.realtimeSinceStartup + 10f));
+            }
+        }
 
-#if UNITY_EDITOR
-                return;
+        private static bool NativeReady()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            return API.xslam_ready();
+#else
+            return false;
 #endif
+        }
 
-          
-
-                while (!API.xslam_ready())
+        private IEnumerator StartDetectionWhenReady(float deadline)
+        {
+            // Yield before assigning startRoutine so even an already-ready SDK is cancellable.
+            yield return null;
+            try
+            {
+                while (!readyNative())
                 {
-                    MyDebugTool.Log("xslam_ready==false");
+                    if (Time.realtimeSinceStartup >= deadline)
+                    {
+                        Debug.LogWarning("SpatialMesh: SDK readiness timeout.");
+                        yield break;
+                    }
+                    yield return null;
                 }
-
-                MyDebugTool.Log("xslam_ready==true");
-
-
-                if (isCreatMesh)
+                detectionOwners.Add(this);
+                Volatile.Write(ref activeOwners, detectionOwners.Count);
+                if (detectionOwners.Count == 1 && isCreatMesh)
                 {
-                    API.xslam_enable_surface_reconstruction(true);
+                    enableNative(true);
                 }
-                else
+                else if (!isCreatMesh)
                 {
                     // CameraManager.StartCapture(XvCameraStreamType.TofDepthCameraStream);
-                    meshSurfaceId = API.xslam_start_surface_callback(true, false, OnStartSurfaceCallback);//Call the Create Mesh API
+                    meshSurfaceId = startNative();//Call the Create Mesh API
                     Debug.Log($"xslam_start_surface_callback return id:{meshSurfaceId}");
                     // API.xslam_reset_slam();
                     isCreatMesh = true;
                 }
-
+                isDetecting = true;
+                Debug.Log($"[MESH-LIFE] scanning id={meshSurfaceId} owners={detectionOwners.Count}");
             }
-           
+            // A failing native entry must not leave a phantom owner keeping the stream alive.
+            finally
+            {
+                if (!isDetecting)
+                {
+                    detectionOwners.Remove(this);
+                    Volatile.Write(ref activeOwners, detectionOwners.Count);
+                }
+                startRoutine = null;
+            }
         }
 
         /// <summary>
@@ -93,12 +126,19 @@ namespace Singray.Foundation
         /// </summary>
         public void StopMeshDetection()
         {
+            if (startRoutine != null) StopCoroutine(startRoutine);
+            startRoutine = null;
             if (isDetecting)
             {
                 isDetecting = false;
-                API.xslam_enable_surface_reconstruction(false);
+                detectionOwners.Remove(this);
+                Volatile.Write(ref activeOwners, detectionOwners.Count);
+                if (detectionOwners.Count == 0) enableNative(false);
+                Debug.Log($"[MESH-LIFE] stopped owners={detectionOwners.Count}");
             }
         }
+
+        private void OnDisable() => StopMeshDetection();
 
        
 
@@ -110,86 +150,53 @@ namespace Singray.Foundation
         [MonoPInvokeCallback(typeof(API.xslam_surface_callback))]
         public static void OnStartSurfaceCallback(IntPtr surfaces, int size)
         {
-//#if UNITY_EDITOR
-//            return;
-//#endif
-
-           // MyDebugTool.Log($"OnStartSurfaceCallback"+ size);
-            objdata = new XslamSurface[size];
-            for (int i = 0; i < size; i++)
+            // Native memory is borrowed for this callback only. Never destroy or retain it.
+            if (surfaces == IntPtr.Zero || size <= 0 || size > 4096 || Volatile.Read(ref activeOwners) == 0)
+                return;
+            try
             {
-                /*try
-                {*/
-                objdata[i] = new XslamSurface();
-
-                IntPtr ptr = surfaces + i * Marshal.SizeOf(typeof(XslamSurface));
-                if (ptr == IntPtr.Zero)
-                    return;
-
-                objdata[i] = (XslamSurface)Marshal.PtrToStructure(ptr, typeof(XslamSurface));
-
-
-                IntPtr intptr_kp = objdata[i].vertices;
-                if (intptr_kp == IntPtr.Zero)
-                    return;
-                long a = intptr_kp.ToInt64();
-
-                IntPtr intptr_nor = objdata[i].vertexNormals;
-                if (intptr_nor == IntPtr.Zero)
-                    return;
-                long a_n = intptr_nor.ToInt64();
-
-                IntPtr intptr_t = objdata[i].triangles;
-                if (intptr_t == IntPtr.Zero)
-                    return;
-                long a_t = intptr_t.ToInt64();
-
-                List<Vector3> viList = new List<Vector3>();
-                List<Vector3> vi_nList = new List<Vector3>();
-                List<Vector3uint> trianglesList = new List<Vector3uint>();
-
-
-                //All points of each detected object
-                for (int n = 0; n < objdata[i].verticesSize; n++)
+                int stride = Marshal.SizeOf(typeof(XslamSurface));
+                for (int i = 0; i < size; i++)
                 {
-                    IntPtr ptr_vi = (IntPtr)((a + n * Marshal.SizeOf(typeof(Vector3))));
-                    if (ptr_vi == IntPtr.Zero)
-                        return;
-                    Vector3 vi = (Vector3)Marshal.PtrToStructure(ptr_vi, typeof(Vector3));
-                    viList.Add(vi);
-
-                    IntPtr ptr_vi_n = (IntPtr)((a_n + n * Marshal.SizeOf(typeof(Vector3))));
-                    if (ptr_vi_n == IntPtr.Zero)
-                        return;
-                    Vector3 vi_n = (Vector3)Marshal.PtrToStructure(ptr_vi_n, typeof(Vector3));
-                    vi_nList.Add(vi_n);
-
-                    Marshal.DestroyStructure(ptr_vi, typeof(Vector3));
-                    Marshal.DestroyStructure(ptr_vi_n, typeof(Vector3));
-                }
-
-                for (int n = 0; n < objdata[i].trianglesSize; n++)
-                {
-                    //Debug
-                    IntPtr ptr_vi_t = (IntPtr)((a_t + n * Marshal.SizeOf(typeof(Vector3uint))));
-                    if (ptr_vi_t == IntPtr.Zero)
+                    var item = (XslamSurface)Marshal.PtrToStructure(IntPtr.Add(surfaces, checked(i * stride)), typeof(XslamSurface));
+                    if (item.verticesSize > 1000000 || item.trianglesSize > 2000000 ||
+                        (item.verticesSize > 0 && (item.vertices == IntPtr.Zero || item.vertexNormals == IntPtr.Zero)) ||
+                        (item.trianglesSize > 0 && item.triangles == IntPtr.Zero))
+                        continue;
+                    var vertices = new List<Vector3>((int)item.verticesSize);
+                    var normals = new List<Vector3>((int)item.verticesSize);
+                    var triangles = new List<Vector3uint>((int)item.trianglesSize);
+                    bool valid = true;
+                    for (int n = 0; n < item.verticesSize; n++)
                     {
-                        return;
+                        var vertex = (Vector3)Marshal.PtrToStructure(IntPtr.Add(item.vertices, n * 12), typeof(Vector3));
+                        var normal = (Vector3)Marshal.PtrToStructure(IntPtr.Add(item.vertexNormals, n * 12), typeof(Vector3));
+                        if (!Finite(vertex) || !Finite(normal)) { valid = false; break; }
+                        vertices.Add(vertex); normals.Add(normal);
                     }
-                    Vector3uint vi_t = (Vector3uint)Marshal.PtrToStructure(ptr_vi_t, typeof(Vector3uint));
-                    trianglesList.Add(vi_t);
-
-                    Marshal.DestroyStructure(ptr_vi_t, typeof(Vector3uint));
+                    if (!valid) continue;
+                    for (int n = 0; n < item.trianglesSize; n++)
+                    {
+                        var triangle = (Vector3uint)Marshal.PtrToStructure(IntPtr.Add(item.triangles, n * 12), typeof(Vector3uint));
+                        if (triangle.x >= item.verticesSize || triangle.y >= item.verticesSize || triangle.z >= item.verticesSize)
+                        { valid = false; break; }
+                        triangles.Add(triangle);
+                    }
+                    if (valid && Volatile.Read(ref activeOwners) > 0)
+                        getCreatMeshData(vertices, normals, triangles, item.mapId.ToString());
                 }
-
-
-              //  MyDebugTool.Log($"Mesh callback");
-               
-                getCreatMeshData(viList, vi_nList, trianglesList, objdata[i].mapId.ToString());
-                Marshal.DestroyStructure(ptr, typeof(XslamSurface));
+            }
+            catch (Exception e)
+            {
+                // Do not propagate managed subscriber/copy failures through the native ABI.
+                Debug.LogWarning("[MESH-LIFE] callback rejected: " + e.Message);
             }
         }
 
+        private static bool Finite(Vector3 value) =>
+            !float.IsNaN(value.x) && !float.IsInfinity(value.x) &&
+            !float.IsNaN(value.y) && !float.IsInfinity(value.y) &&
+            !float.IsNaN(value.z) && !float.IsInfinity(value.z);
 
         private static void getCreatMeshData(List<Vector3> vList0, List<Vector3> vList1, List<Vector3uint> tList1, string mapID)
         {

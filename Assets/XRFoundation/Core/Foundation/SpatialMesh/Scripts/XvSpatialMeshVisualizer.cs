@@ -1,193 +1,169 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
+
 namespace Singray.Foundation
 {
-    /// <summary>
-    /// Spatial mesh visualization
-    /// </summary>
+    /// <summary>Visualizes the latest spatial surface for each map ID.</summary>
     public sealed class XvSpatialMeshVisualizer : WorkQueue
     {
         private XvSpatialMeshVisualizer() { }
-
-        /// <summary>
-        /// All generated meshes
-        /// </summary>
-        private Dictionary<string, GameObject> meshDic = new Dictionary<string, GameObject>();
-        public Dictionary<string, GameObject> MeshDic { 
-        get { return meshDic; }
-        }
-
-
-        [SerializeField]
-        private XvSpatialMeshManager xvSpatialMeshManager;
-
-        [SerializeField]
-        private Material meshMat;
-
-
-
-
-        [SerializeField]
-        private bool enableCollider = true;
-
-        public bool EnableCollider
-        {
-            get { return enableCollider; }
-        }
-
-        [SerializeField]
-        private bool enableRender = true;
-
-        public bool EnableRender
-        {
-            get { return enableRender; }
-        }
-
-        [SerializeField]
-
-        public bool autoDetection = true;
-        public bool AutoDetection
-        {
-            get { return autoDetection; }
-        }
+        private readonly Dictionary<string, GameObject> meshDic = new Dictionary<string, GameObject>();
+        public Dictionary<string, GameObject> MeshDic => meshDic;
+        [SerializeField] private XvSpatialMeshManager xvSpatialMeshManager;
+        [SerializeField] private Material meshMat;
+        [SerializeField] private bool enableCollider = true;
+        public bool EnableCollider => enableCollider;
+        [SerializeField] private bool enableRender = true;
+        public bool EnableRender => enableRender;
+        [SerializeField] public bool autoDetection = true;
+        public bool AutoDetection => autoDetection;
+        private readonly object pendingLock = new object();
+        private readonly Dictionary<string, NowXslamSurface> pending = new Dictionary<string, NowXslamSurface>();
+        private readonly Queue<string> pendingIds = new Queue<string>();
+        private readonly Dictionary<string, Mesh> ownedMeshes = new Dictionary<string, Mesh>();
+        private readonly Dictionary<string, GameObject> ownedRoots = new Dictionary<string, GameObject>();
+        private bool accepting;
+        private int applied;
+        private float nextLog;
         protected override void Awake()
         {
-            if (xvSpatialMeshManager == null)
-            {
-                xvSpatialMeshManager = FindObjectOfType<XvSpatialMeshManager>();
-
-                if (xvSpatialMeshManager == null)
-                {
-
-                    xvSpatialMeshManager=new GameObject("XvSpatialMeshManager").AddComponent<XvSpatialMeshManager>();
-                }
-            }
-
+            base.Awake();
+            if (xvSpatialMeshManager == null) xvSpatialMeshManager = GetComponent<XvSpatialMeshManager>();
+            if (xvSpatialMeshManager == null) xvSpatialMeshManager = GetComponentInParent<XvSpatialMeshManager>();
+            if (xvSpatialMeshManager == null) xvSpatialMeshManager = FindObjectOfType<XvSpatialMeshManager>();
+            if (xvSpatialMeshManager == null) xvSpatialMeshManager = new GameObject("XvSpatialMeshManager").AddComponent<XvSpatialMeshManager>();
         }
-
         private void OnEnable()
         {
+            lock (pendingLock) accepting = true;
             XvSpatialMeshManager.meshChanged += meshChanged;
-
-            if (autoDetection)
-            {
-                xvSpatialMeshManager.StartMeshDetection();
-            }
+            if (autoDetection) xvSpatialMeshManager.StartMeshDetection();
         }
-
-
         private void OnDisable()
         {
             XvSpatialMeshManager.meshChanged -= meshChanged;
-            if (autoDetection)
-            {
-                xvSpatialMeshManager.StopMeshDetection();
-            }
+            lock (pendingLock) { accepting = false; pending.Clear(); pendingIds.Clear(); }
+            if (autoDetection && xvSpatialMeshManager != null) xvSpatialMeshManager.StopMeshDetection();
         }
-
         private void OnDestroy()
         {
-            if (xvSpatialMeshManager.IsDetecting)
+            OnDisable();
+            foreach (var mesh in ownedMeshes.Values) Release(mesh);
+            foreach (var root in ownedRoots.Values) Release(root);
+            ownedMeshes.Clear(); ownedRoots.Clear(); meshDic.Clear();
+        }
+        private static void Release(UnityEngine.Object obj)
+        {
+            if (obj == null) return;
+            if (Application.isPlaying) Destroy(obj); else DestroyImmediate(obj);
+        }
+        // Native callbacks may run off the main thread; replace stale updates for the same ID.
+        private void meshChanged(NowXslamSurface data)
+        {
+            if (data == null || string.IsNullOrEmpty(data.mapID)) return;
+            lock (pendingLock)
             {
-                xvSpatialMeshManager.StopMeshDetection();
+                if (!accepting) return;
+                if (!pending.ContainsKey(data.mapID))
+                {
+                    pendingIds.Enqueue(data.mapID);
+                }
+                pending[data.mapID] = data;
             }
         }
-        private void meshChanged(NowXslamSurface nowXslamSurface)
+        protected override void Update()
         {
-
-            InvokeOnAppThread(() =>
+            base.Update();
+            // Bound per-frame collision cooking and mesh uploads; retained IDs receive their latest update.
+            for (int i = 0; i < 4; i++)
             {
-                creatMesh(nowXslamSurface);
-            });
-
+                NowXslamSurface data;
+                lock (pendingLock)
+                {
+                    if (pendingIds.Count == 0) break;
+                    string id = pendingIds.Dequeue(); data = pending[id]; pending.Remove(id);
+                }
+                creatMesh(data);
+            }
+            if (applied > 0 && Time.unscaledTime >= nextLog)
+            {
+                int waiting; lock (pendingLock) waiting = pending.Count;
+                Debug.Log($"[MESH-LIFE] surfaces={meshDic.Count} updates={applied} pending={waiting} render={enableRender} collider={enableCollider}");
+                nextLog = Time.unscaledTime + 5f;
+            }
         }
-
         private void creatMesh(NowXslamSurface data)
         {
-            if (meshDic.TryGetValue(data.mapID, out GameObject meshObj))
+            if (!Valid(data)) return;
+            if (data.vList0_t.Count == 0 || data.vListt_t.Count == 0)
             {
-                Destroy(meshObj);
-                meshDic.Remove(data.mapID);
+                if (ownedMeshes.TryGetValue(data.mapID, out var oldMesh)) Release(oldMesh);
+                if (ownedRoots.TryGetValue(data.mapID, out var oldRoot)) Release(oldRoot);
+                ownedMeshes.Remove(data.mapID); ownedRoots.Remove(data.mapID); meshDic.Remove(data.mapID);
+                return;
             }
-
-            GameObject meshMother = new GameObject();
-            meshMother.name = data.mapID;
-            meshMother.transform.parent = transform;
-
-            GameObject c = new GameObject();
-            c.transform.parent = meshMother.transform;
-
-            c.AddComponent<MeshFilter>();
-            c.AddComponent<MeshRenderer>();
-
-            Vector3[] v3 = new Vector3[data.vList0_t.Count];// = { v0, v1, v2, v0, v1, v2};
-            for (int i = 0; i < data.vList0_t.Count; i++)
+            if (!meshDic.TryGetValue(data.mapID, out var obj) || obj == null)
             {
-                v3[i] = new Vector3(data.vList0_t[i].x, -data.vList0_t[i].y, data.vList0_t[i].z);// data.vList0_t[i];
+                if (ownedMeshes.TryGetValue(data.mapID, out var oldMesh)) Release(oldMesh);
+                if (ownedRoots.TryGetValue(data.mapID, out var oldRoot)) Release(oldRoot);
+                var root = new GameObject(data.mapID); root.transform.SetParent(transform, true);
+                obj = new GameObject("tPolygon"); obj.transform.SetParent(root.transform, true);
+                obj.AddComponent<MeshFilter>();
+                var renderer = obj.AddComponent<MeshRenderer>(); renderer.sharedMaterial = meshMat;
+                renderer.shadowCastingMode = ShadowCastingMode.Off; renderer.receiveShadows = false;
+                obj.AddComponent<MeshCollider>(); obj.isStatic = true;
+                var mesh = new Mesh { name = "SpatialMesh_" + data.mapID }; mesh.MarkDynamic();
+                obj.GetComponent<MeshFilter>().sharedMesh = mesh;
+                meshDic[data.mapID] = obj; ownedMeshes[data.mapID] = mesh; ownedRoots[data.mapID] = root;
             }
-
-            Vector3[] vn = new Vector3[data.vList1_t.Count];// = { v0, v1, v2, v0, v1, v2};
-            for (int i = 0; i < data.vList1_t.Count; i++)
+            var target = ownedMeshes[data.mapID];
+            var vertices = new Vector3[data.vList0_t.Count]; var normals = new Vector3[vertices.Length];
+            for (int i = 0; i < vertices.Length; i++)
             {
-                vn[i] = new Vector3(data.vList1_t[i].x, -data.vList1_t[i].y, data.vList1_t[i].z);// data.vList0_t[i];
+                var v = data.vList0_t[i]; vertices[i] = new Vector3(v.x, -v.y, v.z);
+                var n = data.vList1_t[i]; normals[i] = new Vector3(n.x, -n.y, n.z);
             }
-
-            //Triangle winding: clockwise vertices face forward; counterclockwise vertices face backward
-            //int[] i3 = { 2, 1, 0 };
-            int[] i3 = new int[data.vListt_t.Count * 3];
+            var indices = new int[data.vListt_t.Count * 3];
             for (int i = 0; i < data.vListt_t.Count; i++)
             {
-                i3[i * 3] = (int)data.vListt_t[i].x;
-                i3[i * 3 + 1] = (int)data.vListt_t[i].y;
-                i3[i * 3 + 2] = (int)data.vListt_t[i].z;
+                var t = data.vListt_t[i]; indices[i * 3] = (int)t.x; indices[i * 3 + 1] = (int)t.y; indices[i * 3 + 2] = (int)t.z;
             }
-
-            Vector2[] uv = { new Vector2(0.5f, 0.5f), new Vector2(1, 0), new Vector2(0, 0) };
-            Mesh mesh = c.GetComponent<MeshFilter>().mesh;
-            mesh.vertices = v3;
-            Array.Reverse(i3);
-            mesh.triangles = i3;
-            mesh.normals = vn;
-            mesh.uv = uv;
-            //mesh.indexFormat
-
-            c.GetComponent<MeshRenderer>().material = meshMat; //mList[0];// Multi-user collaboration; remove this comment if not needed
-            c.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            c.GetComponent<MeshRenderer>().receiveShadows = false;
-            c.isStatic = true;
-            c.name = "tPolygon";
-
-            //CombineMesh(meshMother);// Combine meshes sharing the same map ID
-            //Add collision geometry
-            c.GetComponent<MeshRenderer>().enabled = enableRender;
-            Collider collider = c.AddComponent<MeshCollider>();
+            Array.Reverse(indices);
+            var collider = obj.GetComponent<MeshCollider>(); collider.sharedMesh = null;
+            target.Clear(); target.indexFormat = vertices.Length > 65535 ? IndexFormat.UInt32 : IndexFormat.UInt16;
+            target.vertices = vertices; target.normals = normals; target.triangles = indices;
             collider.enabled = enableCollider;
-            meshDic.Add(data.mapID, c);
-
+            if (enableCollider) collider.sharedMesh = target;
+            obj.GetComponent<MeshRenderer>().enabled = enableRender;
+            applied++;
         }
-
+        private static bool Finite(Vector3 v) => !(float.IsNaN(v.x) || float.IsInfinity(v.x) || float.IsNaN(v.y) || float.IsInfinity(v.y) || float.IsNaN(v.z) || float.IsInfinity(v.z));
+        private static bool Valid(NowXslamSurface data)
+        {
+            if (data == null || string.IsNullOrEmpty(data.mapID) || data.vList0_t == null || data.vList1_t == null || data.vListt_t == null ||
+                data.vList0_t.Count != data.vList1_t.Count || data.vListt_t.Count > int.MaxValue / 3) return false;
+            for (int i = 0; i < data.vList0_t.Count; i++) if (!Finite(data.vList0_t[i]) || !Finite(data.vList1_t[i])) return false;
+            foreach (var t in data.vListt_t) if (t.x >= data.vList0_t.Count || t.y >= data.vList0_t.Count || t.z >= data.vList0_t.Count) return false;
+            return true;
+        }
         public void SetCollider(bool enable)
         {
             enableCollider = enable;
             foreach (var item in meshDic.Values)
             {
-                item.GetComponent<Collider>().enabled = enableCollider;
+                if (item == null) continue;
+                var collider = item.GetComponent<MeshCollider>(); collider.enabled = enable;
+                collider.sharedMesh = enable ? item.GetComponent<MeshFilter>().sharedMesh : null;
             }
+            Debug.Log("[MESH-LIFE] collider=" + enable);
         }
-
         public void SetVisualizer(bool enable)
         {
-            this.enableRender = enable;
-            foreach (var item in meshDic.Values)
-            {
-                item.GetComponent<MeshRenderer>().enabled = enableRender;
-            }
+            enableRender = enable;
+            foreach (var item in meshDic.Values) if (item != null) item.GetComponent<MeshRenderer>().enabled = enable;
+            Debug.Log("[MESH-LIFE] render=" + enable);
         }
     }
 }
-

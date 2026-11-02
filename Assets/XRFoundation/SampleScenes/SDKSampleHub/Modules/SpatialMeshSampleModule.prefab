@@ -95,6 +95,28 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 78b0ee2a7df9c8846ab70a3adbe99bd6, type: 3}
+--- !u!114 &7212978682495470301 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8956872391967402138, guid: 78b0ee2a7df9c8846ab70a3adbe99bd6, type: 3}
+  m_PrefabInstance: {fileID: 1753191190869828167}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 65e41a5a0eedf324dbcbf25a47f9f387, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &7702366696107644535 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8264346843314943024, guid: 78b0ee2a7df9c8846ab70a3adbe99bd6, type: 3}
+  m_PrefabInstance: {fileID: 1753191190869828167}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 320f22416726e2c47aec648948958114, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!4 &7906260134195344064 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8497232200883261575, guid: 78b0ee2a7df9c8846ab70a3adbe99bd6, type: 3}
@@ -111,6 +133,10 @@ PrefabInstance:
     - target: {fileID: 1362115672391799, guid: c481dbccec9e83c4bb1164acab9bb215, type: 3}
       propertyPath: m_Mesh
       value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 1731737973966931842, guid: c481dbccec9e83c4bb1164acab9bb215, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2091117863171704243, guid: c481dbccec9e83c4bb1164acab9bb215, type: 3}
       propertyPath: m_Mesh
@@ -164,6 +190,14 @@ PrefabInstance:
       propertyPath: m_Mesh
       value: 
       objectReference: {fileID: 0}
+    - target: {fileID: 5345254900311602136, guid: c481dbccec9e83c4bb1164acab9bb215, type: 3}
+      propertyPath: xvSpatialMeshManager
+      value: 
+      objectReference: {fileID: 7702366696107644535}
+    - target: {fileID: 5345254900311602136, guid: c481dbccec9e83c4bb1164acab9bb215, type: 3}
+      propertyPath: xvSpatialMeshVisualizer
+      value: 
+      objectReference: {fileID: 7212978682495470301}
     - target: {fileID: 5495475230533065961, guid: c481dbccec9e83c4bb1164acab9bb215, type: 3}
       propertyPath: m_Mesh
       value: 

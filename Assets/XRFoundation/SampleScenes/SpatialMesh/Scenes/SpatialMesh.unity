@@ -38,7 +38,6 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0, g: 0, b: 0, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -648,6 +647,28 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 78b0ee2a7df9c8846ab70a3adbe99bd6, type: 3}
+--- !u!114 &4224724696875153248 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8956872391967402138, guid: 78b0ee2a7df9c8846ab70a3adbe99bd6, type: 3}
+  m_PrefabInstance: {fileID: 4224724696875153247}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 65e41a5a0eedf324dbcbf25a47f9f387, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &4224724696875153249 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8264346843314943024, guid: 78b0ee2a7df9c8846ab70a3adbe99bd6, type: 3}
+  m_PrefabInstance: {fileID: 4224724696875153247}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 320f22416726e2c47aec648948958114, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1001 &5249184865702673619
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -659,6 +680,10 @@ PrefabInstance:
     - target: {fileID: 346863692799775475, guid: c481dbccec9e83c4bb1164acab9bb215, type: 3}
       propertyPath: m_Mesh
       value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 1731737973966931842, guid: c481dbccec9e83c4bb1164acab9bb215, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2340685830370422801, guid: c481dbccec9e83c4bb1164acab9bb215, type: 3}
       propertyPath: m_Mesh
@@ -720,6 +745,14 @@ PrefabInstance:
       propertyPath: m_Mesh
       value: 
       objectReference: {fileID: 0}
+    - target: {fileID: 5345254900311602136, guid: c481dbccec9e83c4bb1164acab9bb215, type: 3}
+      propertyPath: xvSpatialMeshManager
+      value: 
+      objectReference: {fileID: 4224724696875153249}
+    - target: {fileID: 5345254900311602136, guid: c481dbccec9e83c4bb1164acab9bb215, type: 3}
+      propertyPath: xvSpatialMeshVisualizer
+      value: 
+      objectReference: {fileID: 4224724696875153248}
     - target: {fileID: 7407928638300640655, guid: c481dbccec9e83c4bb1164acab9bb215, type: 3}
       propertyPath: m_Mesh
       value: 
