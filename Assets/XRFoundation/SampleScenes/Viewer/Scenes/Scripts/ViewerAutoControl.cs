@@ -5,7 +5,7 @@ using Singray.Foundation;
 
 public class ViewerAutoControl : MonoBehaviour
 {
-    public XvCameraDemo xvCameraDemo;
+    public CameraDemo xvCameraDemo;
     private bool ifReady = false;
     // Start is called before the first frame update
     void Start()

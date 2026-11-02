@@ -97,7 +97,7 @@ namespace Singray.Foundation
         }
         public override void StopCapture()
         {
-
+            needOpenCamera = false;
             if (IsOpen)
             {
                 needOpenCamera = false;
@@ -110,8 +110,46 @@ namespace Singray.Foundation
                
             }
             isOpen = false;
+            ReleaseTexture();
+        }
 
+        private void ReleaseTexture()
+        {
+            DestroyTexture(tex);
+            tex = null;
+            pixelBytes = null;
+            cameraData.tex = null;
+            cameraData.texWidth = cameraData.texHeight = 0;
+            lastWidth = lastHeight = 0;
+            rgbTimestamp = 0;
+            readRgbCalibrationFlag = false;
+        }
 
+        private static void DestroyTexture(Texture2D texture)
+        {
+            if (texture == null) return;
+#if UNITY_EDITOR
+            if (!Application.isPlaying) { UnityEngine.Object.DestroyImmediate(texture); return; }
+#endif
+            UnityEngine.Object.Destroy(texture);
+        }
+
+        private void EnsureTexture(int width, int height)
+        {
+            if (tex != null && lastWidth == width && lastHeight == height) return;
+            byte[] nextPixels = new byte[checked(width * height * 4)];
+            Texture2D nextTexture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+            try { nextTexture.Apply(); }
+            catch
+            {
+                DestroyTexture(nextTexture);
+                throw;
+            }
+            ReleaseTexture();
+            tex = nextTexture;
+            pixelBytes = nextPixels;
+            lastWidth = cameraData.texWidth = width;
+            lastHeight = cameraData.texHeight = height;
         }
         public override void Update()
         {
@@ -196,26 +234,7 @@ namespace Singray.Foundation
                         {
                             try
                             {
-                                double r = 1.0;
-                                /*if (width < 1280 && height < 720) {
-                                    r = 1.0;
-                                }*/
-                                int w = (int)(width * r);
-                                int h = (int)(height * r);
-                                MyDebugTool.Log("Create RGB texture " + w + "x" + h);
-                                TextureFormat format = TextureFormat.RGBA32;
-                                tex = new Texture2D(w, h, format, false);
-
-
-                                cameraData.texWidth = w;
-                                cameraData.texHeight = h;
-
-
-                                //tex.filterMode = FilterMode.Point;
-                                tex.Apply();
-
-
-                                pixelBytes = new byte[w * h * 4];
+                                EnsureTexture(width, height);
 
                             }
                             catch (Exception e)

@@ -40,7 +40,7 @@ namespace Singray.Foundation
         {
             WebCamDevice[] webCamDevices = WebCamTexture.devices;
 
-            if (webCamDevices == null || webCamDevices.Length < 0)
+            if (webCamDevices == null || webCamDevices.Length == 0)
             {
                 isOpen = false;
                 MyDebugTool.Log("No camera detected");

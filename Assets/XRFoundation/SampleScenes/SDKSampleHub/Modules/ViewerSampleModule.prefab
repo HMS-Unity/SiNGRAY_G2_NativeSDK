@@ -188,7 +188,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2303905014688179538, guid: aa972adcda7baf34e982e7360eacda65, type: 3}
       propertyPath: m_Name
-      value: XvCameraDemo
+      value: CameraDemo
       objectReference: {fileID: 0}
     - target: {fileID: 2717130700015765842, guid: aa972adcda7baf34e982e7360eacda65, type: 3}
       propertyPath: m_Mesh

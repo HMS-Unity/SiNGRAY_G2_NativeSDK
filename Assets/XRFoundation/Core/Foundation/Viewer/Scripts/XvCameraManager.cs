@@ -188,6 +188,25 @@ namespace Singray.Foundation
         /// <param name="cameraType"></param>
         public void StartCapture(XvCameraStreamType cameraType)
         {
+            bool added = XvCaptureLease.Managed(cameraType) && XvCaptureLease.Register(cameraType, this);
+            try { StartCaptureCore(cameraType); }
+            catch { if (added) XvCaptureLease.Release(cameraType, this); throw; }
+        }
+
+        internal void AcquireCapture(XvCameraStreamType cameraType, object owner)
+        {
+            bool added = XvCaptureLease.Register(cameraType, owner);
+            try { StartCaptureCore(cameraType); }
+            catch { if (added) XvCaptureLease.Release(cameraType, owner); throw; }
+        }
+
+        internal static void ReleaseCapture(XvCameraStreamType cameraType, object owner)
+        {
+            if (XvCaptureLease.Release(cameraType, owner)) StopNativeCapture(cameraType);
+        }
+
+        private void StartCaptureCore(XvCameraStreamType cameraType)
+        {
 
 #if UNITY_ANDROID && !UNITY_EDITOR
             if (!API.xslam_ready())
@@ -260,6 +279,16 @@ namespace Singray.Foundation
         {
             pendingCaptures.Remove(cameraType);
             MyDebugTool.LogDiagnostic("SENSOR", "capture-stop-" + cameraType, $"capture={cameraType} stop requested", 0f);
+            if (XvCaptureLease.Managed(cameraType) && !XvCaptureLease.Release(cameraType, this))
+            {
+                MyDebugTool.LogDiagnostic("SENSOR", "capture-retained-" + cameraType, $"capture={cameraType} retained for another consumer", 0f);
+                return;
+            }
+            StopNativeCapture(cameraType);
+        }
+
+        private static void StopNativeCapture(XvCameraStreamType cameraType)
+        {
             switch (cameraType)
             {
                 case XvCameraStreamType.WebCameraStream:
@@ -328,12 +357,7 @@ namespace Singray.Foundation
 #if UNITY_ANDROID && !UNITY_EDITOR
             if (pendingCaptures.Count > 0 && API.xslam_ready())
             {
-                List<XvCameraStreamType> capturesToStart = new List<XvCameraStreamType>(pendingCaptures);
-                pendingCaptures.Clear();
-                for (int i = 0; i < capturesToStart.Count; ++i)
-                {
-                    StartCapture(capturesToStart[i]);
-                }
+                StartPendingCaptures();
             }
 #endif
 
@@ -358,6 +382,17 @@ namespace Singray.Foundation
                 XvWebCameraManager.GetXvWebCameraManager().Update();
             }
             ReportCaptureHealth();
+        }
+
+        private void StartPendingCaptures()
+        {
+            var capturesToStart = new List<XvCameraStreamType>(pendingCaptures);
+            pendingCaptures.Clear();
+            foreach (var type in capturesToStart)
+            {
+                if (XvCaptureLease.Managed(type) && !XvCaptureLease.HasOwners(type)) continue;
+                StartCaptureCore(type);
+            }
         }
 
         private void OnDestroy()
@@ -576,6 +611,11 @@ namespace Singray.Foundation
             XvTofCameraParameter.sonyTofLibMode = SonyTofLibMode.M2MIX_DF;
             XvTofManager.GetXvTofManager().SetTofStreamMode((int)XvTofCameraParameter.tofStreamMode);
             XvTofManager.GetXvTofManager().StartTofStream(XvTofCameraParameter);
+            if (!XvTofManager.GetXvTofManager().LastStartSubmitted)
+            {
+                startPointCloud = false;
+                yield break;
+            }
             MyDebugTool.LogDiagnostic(
                 "TOF",
                 "point-cloud-start",
@@ -667,9 +707,28 @@ namespace Singray.Foundation
         /// <param name="exposureTimeMs">Exposure duration</param>
         public void SetTofExposure(int libmode, int resulution, int fps, float exposureTimeMs)
         {
+            var tofManager = XvTofManager.GetXvTofManager();
+            bool restoreDepth = tofManager.IsOn(TofStreamType.DeapthStream);
+            bool restoreIr = tofManager.IsOn(TofStreamType.IRStream);
             XvTofManager.GetXvTofManager().StopTofStream();
 
-            bool v1 = API.xslam_start_sony_tof_stream(libmode, resulution, fps);
+            XvTofCameraParameter.sonyTofLibMode = (SonyTofLibMode)libmode;
+            XvTofCameraParameter.tofResolution = (TofResolution)resulution;
+            XvTofCameraParameter.tofFramerate = (TofFramerate)fps;
+            XvTofManager.GetXvTofManager().StartTofStream(XvTofCameraParameter);
+            bool v1 = XvTofManager.GetXvTofManager().LastStartSubmitted;
+            TofStreamType previousType = XvTofCameraParameter.streamType;
+            if (restoreDepth)
+            {
+                XvTofCameraParameter.streamType = TofStreamType.DeapthStream;
+                tofManager.StartCapture(XvTofCameraParameter);
+            }
+            if (restoreIr)
+            {
+                XvTofCameraParameter.streamType = TofStreamType.IRStream;
+                tofManager.StartCapture(XvTofCameraParameter);
+            }
+            XvTofCameraParameter.streamType = previousType;
             bool v2 = API.xslam_tof_set_exposure(1, 0, exposureTimeMs);
             MyDebugTool.LogDiagnostic(
                 "TOF",

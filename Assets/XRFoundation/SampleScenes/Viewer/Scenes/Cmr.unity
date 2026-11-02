@@ -1509,7 +1509,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1248031453596876536, guid: aa972adcda7baf34e982e7360eacda65, type: 3}
       propertyPath: OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: Singray.Foundation.XvCameraDemo, Assembly-CSharp
+      value: Singray.Foundation.CameraDemo, Assembly-CSharp
       objectReference: {fileID: 0}
     - target: {fileID: 1505295465747987495, guid: aa972adcda7baf34e982e7360eacda65, type: 3}
       propertyPath: m_Mesh
@@ -1525,7 +1525,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2303905014688179538, guid: aa972adcda7baf34e982e7360eacda65, type: 3}
       propertyPath: m_Name
-      value: XvCameraDemo
+      value: CameraDemo
       objectReference: {fileID: 0}
     - target: {fileID: 2303905014688179538, guid: aa972adcda7baf34e982e7360eacda65, type: 3}
       propertyPath: m_IsActive
@@ -1597,7 +1597,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6828614489169306980, guid: aa972adcda7baf34e982e7360eacda65, type: 3}
       propertyPath: OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: Singray.Foundation.XvCameraDemo, Assembly-CSharp
+      value: Singray.Foundation.CameraDemo, Assembly-CSharp
       objectReference: {fileID: 0}
     - target: {fileID: 8090996125191386755, guid: aa972adcda7baf34e982e7360eacda65, type: 3}
       propertyPath: m_Mesh

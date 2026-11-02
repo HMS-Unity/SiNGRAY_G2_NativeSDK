@@ -3,12 +3,14 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Scripting.APIUpdating;
 namespace Singray.Foundation
 {
    /// <summary>
    /// Demonstrates camera start/stop controls and video-stream retrieval.
    /// </summary>
-    public class XvCameraDemo : MonoBehaviour
+    [MovedFrom(true, sourceNamespace: "Singray.Foundation", sourceAssembly: "Assembly-CSharp", sourceClassName: "XvCameraDemo")]
+    public class CameraDemo : MonoBehaviour
     {
         [SerializeField]
         private XvCameraManager cameManager;
@@ -25,6 +27,11 @@ namespace Singray.Foundation
         public RawImage mrVideoImage;
 
         public RawImage tofIRCameraImage;
+        public RawImage fisheyeCamera2Image;
+        public RawImage fisheyeCamera3Image;
+        private XvStereoCamera fisheyeCamera2;
+        private XvStereoCamera fisheyeCamera3;
+        private XvRgbResolutionPanel rgbResolutionPanel;
 
 
         private void Start()
@@ -57,6 +64,9 @@ namespace Singray.Foundation
                 }
             }
 
+            rgbResolutionPanel = GetComponent<XvRgbResolutionPanel>();
+            if (rgbResolutionPanel == null) rgbResolutionPanel = gameObject.AddComponent<XvRgbResolutionPanel>();
+            rgbResolutionPanel.Initialize(this, cameManager);
         }
 
         #region Camera lens modes
@@ -120,7 +130,8 @@ namespace Singray.Foundation
         // Update is called once per frame
         void Update()
         {
-
+            fisheyeCamera2?.Update();
+            fisheyeCamera3?.Update();
          
             if (Input.GetKeyDown(KeyCode.LeftArrow))
             {
@@ -165,11 +176,14 @@ namespace Singray.Foundation
         }
          
         public void StartARCamera() {
+            XvCameraManager.onARCameraStreamFrameArrived.RemoveListener(onARCameraFrameArrived);
             XvCameraManager.onARCameraStreamFrameArrived.AddListener(onARCameraFrameArrived);
             cameManager.StartCapture(XvCameraStreamType.ARCameraStream);
+            rgbResolutionPanel?.NotifyStarted();
         }
         public void StopARCamera()
         {
+            rgbResolutionPanel?.NotifyStopped();
             XvCameraManager.onARCameraStreamFrameArrived.RemoveListener(onARCameraFrameArrived);
 
             cameManager.StopCapture(XvCameraStreamType.ARCameraStream);
@@ -258,6 +272,40 @@ namespace Singray.Foundation
         {
             mrVideoImage.texture = captureManager.CameraRenderTexture;
             captureManager.StartCapture();
+        }
+
+        public void StartFisheyeCamera2()
+        {
+            if (fisheyeCamera2 == null)
+                fisheyeCamera2 = new XvStereoCamera(new XvStereoCameraParameter { cameraIndex = StereoCameraIndex.Camera2 },
+                    frame => { if (fisheyeCamera2Image != null) fisheyeCamera2Image.texture = frame.tex; });
+            fisheyeCamera2.StartCapture();
+        }
+
+        public void StopFisheyeCamera2()
+        {
+            fisheyeCamera2?.StopCapture();
+            if (fisheyeCamera2Image != null) fisheyeCamera2Image.texture = null;
+        }
+
+        public void StartFisheyeCamera3()
+        {
+            if (fisheyeCamera3 == null)
+                fisheyeCamera3 = new XvStereoCamera(new XvStereoCameraParameter { cameraIndex = StereoCameraIndex.Camera3 },
+                    frame => { if (fisheyeCamera3Image != null) fisheyeCamera3Image.texture = frame.tex; });
+            fisheyeCamera3.StartCapture();
+        }
+
+        public void StopFisheyeCamera3()
+        {
+            fisheyeCamera3?.StopCapture();
+            if (fisheyeCamera3Image != null) fisheyeCamera3Image.texture = null;
+        }
+
+        private void OnDisable()
+        {
+            StopFisheyeCamera2();
+            StopFisheyeCamera3();
         }
 
         public void StopMRCaptureCamera()

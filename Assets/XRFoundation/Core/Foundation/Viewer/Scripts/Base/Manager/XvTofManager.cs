@@ -1,331 +1,220 @@
-
-
+using System;
 using UnityEngine;
-using Singray.Engine;
-using static Singray.Foundation.XvCameraBase;
 
 namespace Singray.Foundation
 {
+    public enum TofStreamType { Unknown = 0, DeapthStream, IRStream }
 
-    public enum TofStreamType { 
-        Unknown = 0,
-        DeapthStream,//Depth image
-        IRStream,//IR image
-    
-    }
-    /// <summary>
-    /// Depth image
-    /// </summary>
     public class XvTofDepth
     {
         private XvCameraBase frameBase;
-       
         public bool IsOn { get; private set; }
         public void StartCapture(XvTofCameraParameter xvTofCameraParameter)
         {
-#if UNITY_EDITOR
-            return;
-#endif
-            if (IsOn)
-            {
-                return;
-            }
-
-           // StopCapture();
-
-            if (frameBase==null) { 
-            
-            frameBase = new XvTofCamera(xvTofCameraParameter, FrameArrived);
-            }
-            IsOn = true;
-
-            //if (XvTofManager.GetXvTofManager().modelSet == false)
-            //{
-            //    XvTofManager.GetXvTofManager().SetTofStreamMode(2);
-            //}
-            XvTofManager.GetXvTofManager().StartTofStream(xvTofCameraParameter);
+            var parameter = xvTofCameraParameter;
+            if (IsOn) return;
+            var manager = XvTofManager.GetXvTofManager();
+            manager.StartTofStream(parameter);
+            if (!manager.LastStartSubmitted) return;
+            frameBase = new XvTofCamera(parameter, FrameArrived);
             frameBase.StartCapture();
+            IsOn = true;
         }
-
+        internal void ReleaseFrame()
+        {
+            IsOn = false;
+            frameBase?.StopCapture();
+            frameBase = null;
+        }
         public void StopCapture()
         {
-#if UNITY_EDITOR
-            return;
-#endif
-            if (frameBase != null && frameBase.IsOpen)
-            {
-                frameBase.StopCapture();
-                XvTofManager.GetXvTofManager().StopTofStream();
-            }
-
-            frameBase = null;
-            // GC.Collect();
-
-            IsOn = false;
+            bool running = IsOn;
+            ReleaseFrame();
+            if (running) XvTofManager.GetXvTofManager().StopIfUnused();
         }
-
-        private void FrameArrived(cameraData cameraData)
-        {
-            XvCameraManager.onTofDepthCameraStreamFrameArrived?.Invoke(cameraData);
-        }
-
-        public void Update() {
-            frameBase?.Update();
-        }
-
-    }
-    /// <summary>
-    /// IR image
-    /// </summary>
-    public class XvTofIR {
-
-
-        private XvCameraBase frameBase;
-
-        public bool IsOn
-        {
-            get;
-            private set;
-        }
-        public void StartCapture(XvTofCameraParameter xvTofIRCameraParameter)
-        {
-            MyDebugTool.Log("StartIRCapture == 1:");
-#if UNITY_EDITOR
-            return;
-#endif
-            if (IsOn)
-            {
-                return;
-            }
-            MyDebugTool.Log("StartIRCapture");
-           // StopCapture();
-
-            if (frameBase==null) { 
-            
-            frameBase = new XvTofIRCamera(xvTofIRCameraParameter, FrameArrived);
-            }
-            IsOn = true;
-
-            //if (XvTofManager.GetXvTofManager().modelSet == false)
-            //{
-            //    XvTofManager.GetXvTofManager().SetTofStreamMode(2);
-            //}
-
-            XvTofManager.GetXvTofManager().StartTofIRStream(xvTofIRCameraParameter);
-            frameBase.StartCapture();
-        }
-
-        public void StopCapture()
-        {
-#if UNITY_EDITOR
-            return;
-#endif
-            if (frameBase != null && frameBase.IsOpen)
-            {
-                frameBase.StopCapture();
-                XvTofManager.GetXvTofManager(). StopTofStream();
-            }
-
-            frameBase = null;
-            // GC.Collect();
-
-            IsOn = false;
-        }
-
-        private void FrameArrived(cameraData cameraData)
-        {
-            XvCameraManager.onTofIRCameraStreamFrameArrived?.Invoke(cameraData);
-        }
-
-
+        private void FrameArrived(cameraData frame) => XvCameraManager.onTofDepthCameraStreamFrameArrived?.Invoke(frame);
         public void Update()
         {
-            
-          
-
             frameBase?.Update();
+            if (frameBase != null && !frameBase.IsOpen) XvTofManager.GetXvTofManager().StopTofStream();
         }
-      
-
-
-       
-
     }
 
-  
-    #region tof
+    public class XvTofIR
+    {
+        private XvCameraBase frameBase;
+        public bool IsOn { get; private set; }
+        public void StartCapture(XvTofCameraParameter xvTofIRCameraParameter)
+        {
+            var parameter = xvTofIRCameraParameter;
+            if (IsOn) return;
+            var manager = XvTofManager.GetXvTofManager();
+            manager.StartTofIRStream(parameter);
+            if (!manager.LastStartSubmitted) return;
+            frameBase = new XvTofIRCamera(parameter, FrameArrived);
+            frameBase.StartCapture();
+            IsOn = true;
+        }
+        internal void ReleaseFrame()
+        {
+            IsOn = false;
+            frameBase?.StopCapture();
+            frameBase = null;
+        }
+        public void StopCapture()
+        {
+            bool running = IsOn;
+            ReleaseFrame();
+            if (running) XvTofManager.GetXvTofManager().StopIfUnused();
+        }
+        private void FrameArrived(cameraData frame) => XvCameraManager.onTofIRCameraStreamFrameArrived?.Invoke(frame);
+        public void Update() => frameBase?.Update();
+    }
+
     public sealed class XvTofManager
     {
-
         private static XvTofManager xvTofManager;
-
-        public static XvTofManager GetXvTofManager()
-        {
-            if (xvTofManager == null)
-            {
-                xvTofManager = new XvTofManager();
-
-            }
-            return xvTofManager;
-        }
-
+        public static XvTofManager GetXvTofManager() => xvTofManager ?? (xvTofManager = new XvTofManager());
         private XvTofManager() { }
         public bool modelSet = false;
+        private XvTofDepth xvTofDepth;
+        private XvTofIR xvTofIR;
+        private int configuredMode = -1;
+        private XvTofCameraParameter activeParameter;
+        private bool streamRequested, irRequested, depthRequested;
+        private bool stopSubmitted;
+        private int generation;
+        internal bool LastStartSubmitted { get; private set; }
 
-        private XvTofDepth xvTofDepth = null;
-        private XvTofIR xvTofIR = null;
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="streamType">0: deapth  1:IR </param>
         public void StartCapture(XvTofCameraParameter xvTofCameraParameter)
         {
-            MyDebugTool.Log("StartCapture:"+ xvTofCameraParameter.streamType);
-
-            switch (xvTofCameraParameter.streamType)
+            var parameter = xvTofCameraParameter;
+            if (parameter == null) return;
+            if (parameter.streamType == TofStreamType.DeapthStream)
             {
-                case TofStreamType.Unknown:
-                    break;
-                case TofStreamType.DeapthStream:
-                    if (xvTofDepth == null)
-                    {
-                        xvTofDepth = new XvTofDepth();
-                    }
-
-                    SetTofStreamMode((int)xvTofCameraParameter.tofStreamMode);
-                    xvTofDepth.StartCapture(xvTofCameraParameter);
-                    break;
-                case TofStreamType.IRStream:
-                    if (xvTofIR == null)
-                    {
-                        xvTofIR = new XvTofIR();
-                    }
-                    MyDebugTool.Log("tofImageType == 1:" + xvTofCameraParameter.streamType);
-                    SetTofStreamMode((int)xvTofCameraParameter.tofStreamMode);
-
-                    xvTofIR.StartCapture(xvTofCameraParameter);
-                    break;
-                default:
-                    break;
+                if (xvTofDepth == null) xvTofDepth = new XvTofDepth();
+                xvTofDepth.StartCapture(parameter);
             }
-            
-        }
-
-        public void StopCapture(TofStreamType streamType) {
-            switch (streamType)
+            else if (parameter.streamType == TofStreamType.IRStream)
             {
-                case TofStreamType.Unknown:
-                    break;
-                case TofStreamType.DeapthStream:
-                    if (xvTofDepth != null)
-                    {
-                        xvTofDepth.StopCapture();
-
-                    }
-                    break;
-                case TofStreamType.IRStream:
-                    if (xvTofIR != null)
-                    {
-                        xvTofIR.StopCapture();
-
-                    }
-                    break;
-                default:
-                    break;
+                if (xvTofIR == null) xvTofIR = new XvTofIR();
+                xvTofIR.StartCapture(parameter);
             }
-           
         }
-
-        public bool IsOn(TofStreamType streamType) {
-            switch (streamType)
-            {
-                case TofStreamType.Unknown:
-                    break;
-                case TofStreamType.DeapthStream:
-                    if (xvTofDepth != null)
-                    {
-                        return xvTofDepth.IsOn;
-
-                    }
-                    break;
-                case TofStreamType.IRStream:
-                    if (xvTofIR != null)
-                    {
-                        return xvTofIR.IsOn;
-
-                    }
-                    break;
-                default:
-                    break;
-            }
-           
-            return false;
-        }
-
-        /// <summary>
-        /// Start the ToF depth camera stream
-        /// </summary>
-        public void StartTofStream(XvTofCameraParameter xvTofIRCameraParameter)
+        public void StopCapture(TofStreamType streamType)
         {
-            API.xslam_start_tof_stream();
-            API.xslam_start_sony_tof_stream((int)xvTofIRCameraParameter.sonyTofLibMode, (int)xvTofIRCameraParameter.tofResolution, (int)xvTofIRCameraParameter.tofFramerate);
-
+            var type = streamType;
+            if (type == TofStreamType.DeapthStream) xvTofDepth?.StopCapture();
+            else if (type == TofStreamType.IRStream) xvTofIR?.StopCapture();
         }
+        public bool IsOn(TofStreamType streamType) => streamType == TofStreamType.DeapthStream ? xvTofDepth != null && xvTofDepth.IsOn
+            : streamType == TofStreamType.IRStream && xvTofIR != null && xvTofIR.IsOn;
 
-        /// <summary>
-        /// Start the ToF IR camera stream
-        /// </summary>
-        public void StartTofIRStream(XvTofCameraParameter xvTofIRCameraParameter)
+        internal void StopIfUnused()
         {
-            API.xslam_start_tofir_stream((int)xvTofIRCameraParameter.sonyTofLibMode, (int)xvTofIRCameraParameter.tofResolution, (int)xvTofIRCameraParameter.tofFramerate);
-
-            API.xslam_tof_enbale_ir_gramma(xvTofIRCameraParameter.enableGamma);
-   
+            if (!IsOn(TofStreamType.DeapthStream) && !IsOn(TofStreamType.IRStream)) StopTofStream();
         }
+        public void StartTofStream(XvTofCameraParameter xvTofIRCameraParameter) => TryStart(xvTofIRCameraParameter, false);
+        public void StartTofIRStream(XvTofCameraParameter xvTofIRCameraParameter) => TryStart(xvTofIRCameraParameter, true);
 
-        /// <summary>
-        /// Set the current ToF stream mode
-        /// </summary>
-        /// <param name="mode"></param>
-      public void SetTofStreamMode(int mode) {
+        private bool Matches(XvTofCameraParameter p) => activeParameter != null
+            && activeParameter.tofStreamMode == p.tofStreamMode && activeParameter.sonyTofLibMode == p.sonyTofLibMode
+            && activeParameter.tofResolution == p.tofResolution && activeParameter.tofFramerate == p.tofFramerate;
 
-            if (!modelSet)
+        private void TryStart(XvTofCameraParameter p, bool ir)
+        {
+            LastStartSubmitted = false;
+            if (p == null || !XvTofNative.Ready())
             {
-                API.xslam_stop_tof_stream();
-                API.xslam_tof_set_steam_mode(mode);
+                Debug.LogWarning("[TOF-LIFE] phase=start-rejected SDK not ready or parameters missing.");
+                return;
             }
-            modelSet = true;
+            if ((int)p.tofStreamMode < 0 || (int)p.tofStreamMode > 4 || (int)p.tofResolution < 0 || (int)p.tofResolution > 2 || (int)p.sonyTofLibMode < 0
+                || (int)p.sonyTofLibMode > 5 || (int)p.tofFramerate < 0 || (int)p.tofFramerate > 5)
+            {
+                Debug.LogError("[TOF-LIFE] phase=start-rejected invalid ToF configuration.");
+                return;
+            }
+            try
+            {
+                if (streamRequested && !Matches(p)) StopTofStream();
+                SetTofStreamMode((int)p.tofStreamMode);
+                if (!modelSet) return;
+                XvTofNative.Log("start-before", $"generation={generation} mode={p.tofStreamMode} sony={p.sonyTofLibMode} requested={p.tofResolution} fps={p.tofFramerate} ir={ir}");
+                if (ir)
+                {
+                    if (!irRequested) XvTofNative.Ir((int)p.sonyTofLibMode, (int)p.tofResolution, (int)p.tofFramerate);
+#if UNITY_ANDROID && !UNITY_EDITOR
+                    API.xslam_tof_enbale_ir_gramma(p.enableGamma);
+#endif
+                    irRequested = true;
+                }
+                else if (!depthRequested)
+                {
+                    // Preserve the supplier's two-step startup, using the actual void ABI.
+                    XvTofNative.Start();
+                    XvTofNative.Sony((int)p.sonyTofLibMode, (int)p.tofResolution, (int)p.tofFramerate);
+                    depthRequested = true;
+                }
+                activeParameter = new XvTofCameraParameter { tofStreamMode = p.tofStreamMode, sonyTofLibMode = p.sonyTofLibMode,
+                    tofResolution = p.tofResolution, tofFramerate = p.tofFramerate, enableGamma = p.enableGamma };
+                streamRequested = LastStartSubmitted = true;
+                XvTofNative.Log("start-submitted", "generation=" + generation + " nativeReturn=void confirmation=pending-fresh-frame");
+            }
+            catch (Exception error)
+            {
+                StopTofStream();
+                Debug.LogError("[TOF-LIFE] phase=start-failed " + error);
+            }
         }
-        /// <summary>
-        /// Stop the ToF camera stream
-        /// </summary>
+
+        public void SetTofStreamMode(int mode)
+        {
+            if (mode < 0 || mode > 4 || !XvTofNative.Ready()) return;
+            if (modelSet && configuredMode == mode) return;
+            StopTofStream();
+            if (!stopSubmitted) return;
+            try
+            {
+                int result = XvTofNative.Mode(mode);
+                // The bundled function returns its underlying setMode result masked with 1.
+                if (result != 1)
+                {
+                    Debug.LogError($"[TOF-LIFE] phase=mode-rejected generation={generation} mode={mode} rawResult={result}; startup cancelled.");
+                    return;
+                }
+                configuredMode = mode;
+                modelSet = true;
+                XvTofNative.Log("mode-submitted", $"generation={generation} mode={mode} rawResult={result}");
+            }
+            catch (Exception error) { Debug.LogError("[TOF-LIFE] phase=mode-failed " + error); }
+        }
 
         public void StopTofStream()
         {
-            API.xslam_stop_tof_stream();
+            generation++;
+            stopSubmitted = false;
+            LastStartSubmitted = streamRequested = irRequested = depthRequested = false;
             modelSet = false;
+            configuredMode = -1;
+            activeParameter = null;
+            xvTofDepth?.ReleaseFrame();
+            xvTofIR?.ReleaseFrame();
+            if (!XvTofNative.Ready()) return;
+            try
+            {
+                XvTofNative.TimestampFloor = Math.Max(XvTofNative.TimestampFloor, XvTofNative.CurrentTimestamp());
+                XvTofNative.Log("stop-before", "generation=" + generation);
+                XvTofNative.Stop();
+                stopSubmitted = true;
+                XvTofNative.Log("stop-returned", "generation=" + generation + " nativeReturn=void timestampFloor=" + XvTofNative.TimestampFloor.ToString("F6"));
+            }
+            catch (Exception error) { Debug.LogError("[TOF-LIFE] phase=stop-failed " + error); }
         }
-
         public void Update()
         {
-            
-#if UNITY_EDITOR
-            return;
-#endif
-            if (xvTofDepth!=null)
-            {
-                xvTofDepth.Update();
-
-            }
-            if (xvTofIR!=null)
-            {
-
-                xvTofIR.Update();
-            }
-
+            xvTofDepth?.Update();
+            xvTofIR?.Update();
         }
     }
-
-    #endregion
 }

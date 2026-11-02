@@ -92,11 +92,17 @@ namespace Singray.Foundation
             
                
                 MyDebugTool.Log("Create TOF IR Update " + width + "x" + height);
-            if (width > 0 && height > 0)
+            if (width > 0 && height > 0 && width <= 640 && height <= 480)
             {
 
-                if (!tex)
+                if (!tex || tex.width != width || tex.height != height)
                 {
+                    if (pixelHandle.IsAllocated) pixelHandle.Free();
+                    if (tex != null)
+                    {
+                        if (Application.isPlaying) UnityEngine.Object.Destroy(tex);
+                        else UnityEngine.Object.DestroyImmediate(tex);
+                    }
                     MyDebugTool.Log("Create TOF IR texture " + width + "x" + height);
                     TextureFormat format = TextureFormat.RGBA32;
                     tex = new Texture2D(width, height, format, false);

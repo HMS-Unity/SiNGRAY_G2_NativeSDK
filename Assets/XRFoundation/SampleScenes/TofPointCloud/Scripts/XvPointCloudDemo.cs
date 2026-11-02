@@ -100,43 +100,23 @@ namespace Singray.Foundation.SampleScenes
                 return;
             }
 
-            foreach (KeyCode keyCode in Enum.GetValues(typeof(KeyCode)))
+            if (Input.GetKeyDown(KeyCode.Return)) API.xslam_reset_slam();
+            if (Input.GetKeyDown(KeyCode.UpArrow))
             {
-                if (Input.GetKeyDown(keyCode))
-                {
-                    if (keyCode.ToString() == "Return")
-                    {
-                        API.xslam_reset_slam();
-                    }
-
-                    if (keyCode.ToString() == "UpArrow")
-                    {
-                        Invoke("StartTofPointCloud", 1);
-
-                        CancelInvoke("saveAsc");
-                        ifSave = true;
-                        particlesCloudPoint.ifCreatFold = true;
-                        InvokeRepeating("saveAsc", 1, 1);
-                    }
-
-                    if (keyCode.ToString() == "DownArrow")
-                    {
-                        CancelInvoke("saveAsc");
-                        StopTofPointCloud();
-                        particlesCloudPoint.ClearPointCloud();
-                    }
-
-                    if (keyCode.ToString() == "LeftArrow")
-                    {
-                        InvokeRepeating("screenShot", 1, 1);
-                    }
-                    if (keyCode.ToString() == "RightArrow")
-                    {
-                        CancelInvoke("screenShot");
-                    }
-                }
+                Invoke("StartTofPointCloud", 1);
+                CancelInvoke("saveAsc");
+                ifSave = true;
+                particlesCloudPoint.ifCreatFold = true;
+                InvokeRepeating("saveAsc", 1, 1);
             }
-
+            if (Input.GetKeyDown(KeyCode.DownArrow))
+            {
+                CancelInvoke("saveAsc");
+                StopTofPointCloud();
+                particlesCloudPoint.ClearPointCloud();
+            }
+            if (Input.GetKeyDown(KeyCode.LeftArrow)) InvokeRepeating("screenShot", 1, 1);
+            if (Input.GetKeyDown(KeyCode.RightArrow)) CancelInvoke("screenShot");
             if (ifSave == false)
             {
                 return;

@@ -1,165 +1,167 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
+
 namespace Singray.Foundation
 {
-    public enum StereoCameraIndex { 
-      LeftEye,
-
-      RightEye,
+    public enum StereoCameraIndex
+    {
+        LeftEye = 0,
+        RightEye = 1,
+        Camera2 = 2,
+        Camera3 = 3,
     }
+
     [Serializable]
     public class XvStereoCameraParameter : XvCameraParameterSetting
     {
-      
-        public StereoCameraIndex cameraIndex;//0==left       1=right
+        public StereoCameraIndex cameraIndex;
     }
+
     public class XvStereoCamera : XvCameraBase
     {
-        public XvStereoCamera(XvStereoCameraParameter cameraParameter, FrameArrived frameArrived) : base(cameraParameter, frameArrived)
-        {
-           
-            this.cameraParameter = cameraParameter;
-
-        }
-        private Color32[] pixel32;
+        private static readonly HashSet<XvStereoCamera> owners = new HashSet<XvStereoCamera>();
+        private static int cameraCount = -1;
+        private readonly XvStereoCameraParameter cameraParameter;
+        private Color32[] pixels;
         private GCHandle pixelHandle;
-        private IntPtr pixelPtr;
-        private Texture2D tex = null;
-       
-        private XvStereoCameraParameter cameraParameter;
+        private Texture2D tex;
+        private double lastTimestamp;
+        private float deadline;
+        private bool acquired;
+        private bool published;
+        private int activeIndex;
+
+        public XvStereoCamera(XvStereoCameraParameter cameraParameter, FrameArrived frameArrived)
+            : base(cameraParameter, frameArrived)
+        {
+            this.cameraParameter = cameraParameter ?? throw new ArgumentNullException(nameof(cameraParameter));
+        }
+
         public override void StartCapture()
         {
+            if (isOpen) return;
+            if ((int)cameraParameter.cameraIndex < 0 || (int)cameraParameter.cameraIndex > 3)
+                throw new ArgumentOutOfRangeException(nameof(cameraParameter.cameraIndex));
+            activeIndex = (int)cameraParameter.cameraIndex;
             base.StartCapture();
-            ChangeStereoStatus(true);
+            deadline = Time.realtimeSinceStartup + 10f;
+            lastTimestamp = 0;
+            published = false;
+            TryAcquire();
+        }
+
+        private bool TryAcquire()
+        {
+            if (acquired) return true;
+            if (!XvStereoNative.Ready()) return false;
+            try
+            {
+                int index = activeIndex;
+                if (owners.Count == 0) cameraCount = -1;
+                if (index >= 2)
+                {
+                    if (cameraCount < 0) cameraCount = XvStereoNative.CameraCount();
+                    if (cameraCount <= index || cameraCount > 16)
+                    {
+                        Debug.LogWarning($"[FISHEYE] index={index} unavailable; calibratedCameras={cameraCount}");
+                        StopCapture();
+                        return false;
+                    }
+                }
+                if (owners.Count == 0) XvStereoNative.Start();
+                owners.Add(this);
+                acquired = true;
+                Debug.Log($"[FISHEYE] start index={index} readers={owners.Count} calibratedCameras={cameraCount}");
+                return true;
+            }
+            catch (Exception error)
+            {
+                Debug.LogError($"[FISHEYE] start failed index={activeIndex}: {error.Message}");
+                StopCapture();
+                return false;
+            }
         }
 
         public override void StopCapture()
         {
             base.StopCapture();
-            pixelHandle.Free();
-            tex = null;
-            ChangeStereoStatus(false);
-
+            ReleaseTexture();
+            lastTimestamp = 0;
+            published = false;
+            if (!acquired) return;
+            acquired = false;
+            owners.Remove(this);
+            Debug.Log($"[FISHEYE] stop index={activeIndex} readers={owners.Count}");
+            if (owners.Count != 0) return;
+            cameraCount = -1;
+            try { XvStereoNative.Stop(); }
+            catch (Exception error) { Debug.LogWarning("[FISHEYE] native stop: " + error.Message); }
         }
 
         public override void Update()
         {
-            if (isOpen) {
-                if (API.xslam_ready() && isStartStereo)
-                {
-
-                    int width = API.xslam_get_stereo_width();
-                    int height = API.xslam_get_stereo_height();
-                    int size = width * height;
-
-                    if (width > 0 && height > 0 && size > 0)
-                    {
-
-                        if (!tex)
-                        {
-                            MyDebugTool.Log("Create STEREO texture " + width + "x" + height);
-                            TextureFormat format = TextureFormat.RGBA32;
-                            tex = new Texture2D(width, height, format, false);
-
-
-                            pixel32 = tex.GetPixels32();
-                            pixelHandle = GCHandle.Alloc(pixel32, GCHandleType.Pinned);
-                            pixelPtr = pixelHandle.AddrOfPinnedObject();
-
-
-                        }
-                        double ts = 0;
-                        switch (cameraParameter.cameraIndex)
-                        {
-                            case StereoCameraIndex.LeftEye:
-                                
-                                if (API.xslam_get_left_image(pixelPtr, tex.width, tex.height, ref ts))
-                                {
-                                    //Update the Texture2D with array updated in C++
-                                    tex.SetPixels32(pixel32);
-                                    tex.Apply();
-
-                                    cameraData.tex = tex;
-                                    cameraData.texWidth = tex.width;
-
-                                    cameraData.texHeight = tex.height;
-
-                                    frameArrived?.Invoke(cameraData);
-                                }
-                                else
-                                {
-                                    MyDebugTool.Log("Invalid Stereo texture");
-                                }
-                                break;
-                            case StereoCameraIndex.RightEye:
-                               
-                                if (API.xslam_get_right_image(pixelPtr, tex.width, tex.height, ref ts))
-                                {
-                                    //Update the Texture2D with array updated in C++
-                                    tex.SetPixels32(pixel32);
-                                    tex.Apply();
-
-                                    cameraData.tex = tex;
-                                    cameraData.texWidth = tex.width;
-
-                                    cameraData.texHeight = tex.height;
-
-                                    frameArrived?.Invoke(cameraData);
-                                }
-                                else
-                                {
-                                    MyDebugTool.Log("Invalid Stereo texture");
-                                }
-                                break;
-                            default:
-                                break;
-                        }
-                     
-
-                        /*int leftPointsCount = 0;
-                        if( API.xslam_get_left_points( leftPoints, ref leftPointsCount) ){
-                            Debug.Log("leftPointsCount " + leftPointsCount);
-                        }*/
-                    }
-                }
+            if (!isOpen) return;
+            if ((!acquired || !published) && Time.realtimeSinceStartup >= deadline)
+            {
+                Debug.LogWarning($"[FISHEYE] index={activeIndex} no fresh frame after 10s");
+                StopCapture();
+                return;
             }
-          
+            if (!TryAcquire() || !XvStereoNative.Ready()) return;
+            try
+            {
+                int width = XvStereoNative.Width(), height = XvStereoNative.Height();
+                if (width <= 0 || height <= 0 || width > 4096 || height > 4096 || (long)width * height > 4194304) return;
+                if (tex == null || tex.width != width || tex.height != height) ReplaceTexture(width, height);
+                double timestamp = 0;
+                if (!XvStereoNative.Read(activeIndex, pixelHandle.AddrOfPinnedObject(), width, height, ref timestamp)
+                    || double.IsNaN(timestamp) || double.IsInfinity(timestamp) || timestamp <= lastTimestamp) return;
+                tex.SetPixelData(pixels, 0);
+                tex.Apply(false, false);
+                lastTimestamp = timestamp;
+                cameraData.tex = tex;
+                cameraData.texWidth = width;
+                cameraData.texHeight = height;
+                cameraData.parameter.timeStamp = timestamp;
+                if (!published)
+                    Debug.Log($"[FISHEYE] first-frame index={activeIndex} actual={width}x{height} timestamp={timestamp:F6}");
+                published = true;
+                frameArrived?.Invoke(cameraData);
+                MyDebugTool.LogDiagnostic("FISHEYE", "frame-" + activeIndex,
+                    $"index={activeIndex} frame={width}x{height} timestamp={timestamp:F6}", 2f);
+            }
+            catch (Exception error)
+            {
+                Debug.LogError($"[FISHEYE] read failed index={activeIndex}: {error.Message}");
+                StopCapture();
+            }
         }
-        private bool isStartStereo;
-        private bool ChangeStereoStatus(bool isOn)
+
+        private void ReplaceTexture(int width, int height)
         {
-            if (API.xslam_ready())
+            ReleaseTexture();
+            try
             {
-                try
-                {
-
-
-                    if (isOn)
-                    {
-                        API.xslam_stop_stereo_stream();
-                        API.xslam_start_stereo_stream();
-                        isStartStereo = true;
-                        return true;
-                    }
-                    else
-                    {
-                        API.xslam_start_stereo_stream();
-                        isStartStereo = false;
-                        return true;
-                    }
-                }
-                catch (Exception e)
-                {
-                    return false;
-                }
+                pixels = new Color32[checked(width * height)];
+                pixelHandle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
+                tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
+                Debug.Log($"[FISHEYE] texture index={activeIndex} size={width}x{height}");
             }
-            else
-            {
-                return false;
-            }
+            catch { ReleaseTexture(); throw; }
+        }
+
+        private void ReleaseTexture()
+        {
+            cameraData.tex = null;
+            cameraData.texWidth = cameraData.texHeight = 0;
+            if (pixelHandle.IsAllocated) pixelHandle.Free();
+            pixels = null;
+            if (tex == null) return;
+            if (Application.isPlaying) UnityEngine.Object.Destroy(tex);
+            else UnityEngine.Object.DestroyImmediate(tex);
+            tex = null;
         }
     }
-
-
 }
