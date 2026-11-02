@@ -85,6 +85,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3461536496181378054, guid: 0fd66fbd5a7b54c4cbed1c94c7760cf0, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 5989665496048128750, guid: 0fd66fbd5a7b54c4cbed1c94c7760cf0, type: 3}
       propertyPath: staticGestureManager
       value: 

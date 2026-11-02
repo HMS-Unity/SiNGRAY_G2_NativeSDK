@@ -48,6 +48,14 @@ PrefabInstance:
     - target: {fileID: 3353857358589903054, guid: aa5896f181a2e9d43b349a77b54d44b9, type: 3}
       propertyPath: tagManager
       value: 
+      objectReference: {fileID: 1522908620117918500}
+    - target: {fileID: 3545162681331642086, guid: aa5896f181a2e9d43b349a77b54d44b9, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5122469258147638071, guid: aa5896f181a2e9d43b349a77b54d44b9, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8271811036665690643, guid: aa5896f181a2e9d43b349a77b54d44b9, type: 3}
       propertyPath: m_LocalPosition.x
@@ -87,6 +95,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8271811036665690643, guid: aa5896f181a2e9d43b349a77b54d44b9, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9056170594574422188, guid: aa5896f181a2e9d43b349a77b54d44b9, type: 3}
+      propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
@@ -151,6 +163,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 7529937009987598444, guid: bdac109ed89d8d848ba6ecd99dfd8ed2, type: 3}
+      propertyPath: aprilTagManager
+      value: 
+      objectReference: {fileID: 1522908620117918500}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -221,6 +237,17 @@ PrefabInstance:
       addedObject: {fileID: 7160219133610311318}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: ac6dda225f9f3af4db2090565362456c, type: 3}
+--- !u!114 &1522908620117918500 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5137001991726904454, guid: ac6dda225f9f3af4db2090565362456c, type: 3}
+  m_PrefabInstance: {fileID: 5938059098961049506}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a505ef873bdf3847a97d2cb3e7744ae, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!4 &4684293995368210977 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 1398875487168861571, guid: ac6dda225f9f3af4db2090565362456c, type: 3}

@@ -531,6 +531,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   recordMicrophone: 0
+  recordAudio: 1
+  maxRecordingDimension: 1920
   audioListener: {fileID: 0}
 --- !u!4 &29015828
 Transform:
@@ -729,6 +731,10 @@ PrefabInstance:
       propertyPath: qrcodeID
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 7529937009987598444, guid: bdac109ed89d8d848ba6ecd99dfd8ed2, type: 3}
+      propertyPath: aprilTagManager
+      value: 
+      objectReference: {fileID: 513767220}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:
@@ -3103,6 +3109,10 @@ PrefabInstance:
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7529937009987598444, guid: bdac109ed89d8d848ba6ecd99dfd8ed2, type: 3}
+      propertyPath: aprilTagManager
+      value: 
+      objectReference: {fileID: 513767220}
+    - target: {fileID: 7529937009987598444, guid: bdac109ed89d8d848ba6ecd99dfd8ed2, type: 3}
       propertyPath: OnLostEvent.m_PersistentCalls.m_Calls.Array.size
       value: 0
       objectReference: {fileID: 0}
@@ -4095,7 +4105,7 @@ TextMesh:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 527542996}
-  m_Text: "Start Camera"
+  m_Text: Start Camera
   m_OffsetZ: 0
   m_CharacterSize: 0.001
   m_LineSpacing: 1
@@ -7526,7 +7536,7 @@ TextMesh:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1110566614}
-  m_Text: "Start Recording"
+  m_Text: Start Recording
   m_OffsetZ: 0
   m_CharacterSize: 0.001
   m_LineSpacing: 1
@@ -8503,7 +8513,7 @@ TextMesh:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1385953271}
-  m_Text: "On"
+  m_Text: On
   m_OffsetZ: 0
   m_CharacterSize: 0.0005
   m_LineSpacing: 1
@@ -8802,7 +8812,7 @@ TextMesh:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1437470974}
-  m_Text: "Capturing Screenshot"
+  m_Text: Capturing Screenshot
   m_OffsetZ: 0
   m_CharacterSize: 0.0005
   m_LineSpacing: 1
@@ -9218,6 +9228,10 @@ PrefabInstance:
       value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 7529937009987598444, guid: bdac109ed89d8d848ba6ecd99dfd8ed2, type: 3}
+      propertyPath: aprilTagManager
+      value: 
+      objectReference: {fileID: 513767220}
+    - target: {fileID: 7529937009987598444, guid: bdac109ed89d8d848ba6ecd99dfd8ed2, type: 3}
       propertyPath: OnLostEvent.m_PersistentCalls.m_Calls.Array.size
       value: 0
       objectReference: {fileID: 0}
@@ -9302,7 +9316,7 @@ TextMesh:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1599760320}
-  m_Text: "Take Screenshot"
+  m_Text: Take Screenshot
   m_OffsetZ: 0
   m_CharacterSize: 0.001
   m_LineSpacing: 1
@@ -9412,7 +9426,7 @@ TextMesh:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1617534106}
-  m_Text: "Streaming"
+  m_Text: Streaming
   m_OffsetZ: 0
   m_CharacterSize: 0.0005
   m_LineSpacing: 1
@@ -9819,7 +9833,7 @@ TextMesh:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1688805357}
-  m_Text: "Recording"
+  m_Text: Recording
   m_OffsetZ: 0
   m_CharacterSize: 0.0005
   m_LineSpacing: 1
@@ -10171,6 +10185,10 @@ PrefabInstance:
       propertyPath: qrcodeID
       value: 2
       objectReference: {fileID: 0}
+    - target: {fileID: 7529937009987598444, guid: bdac109ed89d8d848ba6ecd99dfd8ed2, type: 3}
+      propertyPath: aprilTagManager
+      value: 
+      objectReference: {fileID: 513767220}
     - target: {fileID: 7529937009987598444, guid: bdac109ed89d8d848ba6ecd99dfd8ed2, type: 3}
       propertyPath: OnLostEvent.m_PersistentCalls.m_Calls.Array.size
       value: 0
@@ -10848,7 +10866,7 @@ TextMesh:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2049487098}
-  m_Text: "Start Streaming"
+  m_Text: Start Streaming
   m_OffsetZ: 0
   m_CharacterSize: 0.001
   m_LineSpacing: 1
@@ -12168,7 +12186,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "Type: "
+  m_Text: 'Type: '
 --- !u!1 &1691735416425216348
 GameObject:
   m_ObjectHideFlags: 0

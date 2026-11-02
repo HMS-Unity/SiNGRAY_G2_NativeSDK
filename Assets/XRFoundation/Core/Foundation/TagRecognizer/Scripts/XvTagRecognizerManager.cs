@@ -1,365 +1,289 @@
 using AOT;
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using UnityEngine;
 using UnityEngine.Events;
-using static API;
+using Debug = UnityEngine.Debug;
 
 namespace Singray.Foundation
 {
-
-    /// <summary>
-    /// Provides AprilTag and QR-code recognition
-    /// </summary>
+    /// <summary>AprilTag/QR recognition with shared native sessions and main-thread results.</summary>
     public sealed class XvTagRecognizerManager : MonoBehaviour
     {
         private XvTagRecognizerManager() { }
-
-        [SerializeField]
-        private XvCameraManager xvCameraManager;
-
+        [SerializeField] private XvCameraManager xvCameraManager;
         public XvCameraManager XvCameraManager
         {
             get
             {
-                if (xvCameraManager == null)
-                {
-                    xvCameraManager = FindFirstObjectByType<XvCameraManager>();
-                    if (xvCameraManager == null)
-                    {
-
-                        GameObject newObj = new GameObject("XvCameraManager");
-                        xvCameraManager = newObj.AddComponent<XvCameraManager>();
-
-                    }
-                }
+                if (xvCameraManager == null) xvCameraManager = FindFirstObjectByType<XvCameraManager>();
+                if (xvCameraManager == null) xvCameraManager = new GameObject("XvCameraManager").AddComponent<XvCameraManager>();
                 return xvCameraManager;
             }
         }
-       
-
-        /// <summary>
-        /// Tag family names: apriltag = "36h11", qrcode = "qr-code"
-        /// </summary>
-        //[SerializeField]
-
         private string tagGroupName = "36h11";
-
         public string TagGroupName
         {
-            get
-            {
-                return tagGroupName;
-            }
-
+            get => tagGroupName;
             set
             {
-                tagGroupName = value;
+                if (string.IsNullOrEmpty(value) || value == tagGroupName) return;
+                if (session != null && session.Owners.Count > 1)
+                { Debug.LogWarning("[TAG-LIFE] Family change refused while another manager shares this detector."); return; }
+                if (currentRecognizerMode != RecognizerMode.None) StartConfigured(currentRecognizerMode, value);
+                else tagGroupName = value;
             }
         }
-
-
-        [SerializeField]
-        [Tooltip("Physical tag size")]
-        private double size = 0.16f;
-
+        [SerializeField, Tooltip("Physical tag size in meters")] private double size = 0.16f;
         public double Size
         {
-            get
-            {
-                return size;
-            }
-
+            get => size;
             set
             {
+                if (!XvAprilTag.ValidSize(value)) { Debug.LogWarning("[TAG-LIFE] Invalid tag size ignored."); return; }
+                if (size == value) return;
+                if (session != null && session.Owners.Count > 1)
+                { Debug.LogWarning("[TAG-LIFE] Size change refused while another manager shares this detector."); return; }
                 size = value;
+                if (currentRecognizerMode != RecognizerMode.None) StartConfigured(currentRecognizerMode, tagGroupName);
             }
-
         }
-
-
-        [SerializeField]
-        [Tooltip("Confidence threshold")]
-        private float confidence = 0;
-        public float Confidence
-        {
-            get
-            {
-                return confidence;
-            }
-
-            set
-            {
-                confidence = value;
-            }
-
-        }
-        private bool IsDetection=false;
-
-
+        [SerializeField, Tooltip("Confidence threshold")] private float confidence;
+        public float Confidence { get => confidence; set => confidence = value; }
+        private bool IsDetection;
         private UnityEvent<TagDetection[]> onDetectedAprilTagEvent;
-        public UnityEvent<TagDetection[]> OnDetectedAprilTagEvent
-        {
-            get
-            {
-                if (onDetectedAprilTagEvent == null)
-                {
-                    onDetectedAprilTagEvent = new UnityEvent<TagDetection[]>();
-                }
+        public UnityEvent<TagDetection[]> OnDetectedAprilTagEvent => onDetectedAprilTagEvent ?? (onDetectedAprilTagEvent = new UnityEvent<TagDetection[]>());
+        [SerializeField] private RecognizerMode currentRecognizerMode;
+        public RecognizerMode RecognizerMode => currentRecognizerMode;
 
-                return onDetectedAprilTagEvent;
+        private sealed class Session
+        {
+            internal RecognizerMode Mode;
+            internal string Family;
+            internal double Size;
+            internal readonly HashSet<XvTagRecognizerManager> Owners = new HashSet<XvTagRecognizerManager>();
+            internal readonly object FrameLock = new object();
+            internal volatile bool Cancelled, Complete;
+            internal bool NativeStarted;
+            internal Thread Worker;
+            internal TagDetection[] Latest;
+            internal double ReceivedAt;
+            internal long Frames;
+            internal volatile string Failure;
+        }
+        private static volatile Session activeSession;
+        private Session session;
+        private Coroutine startRoutine;
+        private RecognizerMode resumeMode;
+        private readonly object rgbOwner = new object();
+        private bool rgbAcquired;
+        private float nextLog;
+        private static Func<bool> readyNative = PlatformReady;
+        private static Func<string, double, TagDetection[]> fishNative = XvAprilTag.StartFishEyeDetector;
+        private static Action stopFishNative = XvAprilTag.StopFishEyeDetector;
+        private static Action<string, double, XvAprilTag.TagArrayCallback> startRgbNative = XvAprilTag.StartRgbDetector;
+        private static Action stopRgbNative = XvAprilTag.StopRgbDetector;
+        private static readonly XvAprilTag.TagArrayCallback rgbCallback = OnDetecterTags;
+        private static Action<XvTagRecognizerManager> acquireRgb = m => m.XvCameraManager.AcquireCapture(XvCameraStreamType.ARCameraStream, m.rgbOwner);
+        private static Action<XvTagRecognizerManager> releaseRgb = m => Singray.Foundation.XvCameraManager.ReleaseCapture(XvCameraStreamType.ARCameraStream, m.rgbOwner);
+        internal bool IsStarting => startRoutine != null;
+        private static double Clock() => (double)Stopwatch.GetTimestamp() / Stopwatch.Frequency;
+        private static bool PlatformReady()
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            return API.xslam_ready();
+#else
+            return false;
+#endif
+        }
+        private void OnEnable()
+        {
+            var mode = currentRecognizerMode != RecognizerMode.None ? currentRecognizerMode : resumeMode;
+            if (mode != RecognizerMode.None) StartTagDetector(mode);
+        }
+        private void OnDisable()
+        {
+            var mode = currentRecognizerMode;
+            StopTagDetector(); resumeMode = mode;
+        }
+        private void OnDestroy() => StopTagDetector();
+        private void Update()
+        {
+            RetireCompletedSession();
+            if (!IsDetection || session == null) return;
+            if (session.Failure != null)
+            {
+                Debug.LogWarning("[TAG-LIFE] detector failed: " + session.Failure);
+                StopTagDetector(); return;
             }
-
-        }
-        private static TagDetection[] tagDetection;
-
-
-        [SerializeField]
-        private RecognizerMode currentRecognizerMode;
-        public RecognizerMode RecognizerMode { 
-        get { return currentRecognizerMode; } 
-        }
-
-
-        private void Awake()
-        {
-            StartTagDetector(currentRecognizerMode);
-        }
-
-        // Update is called once per frame
-        void Update()
-        {
-            StartDetect();
-
-        }
-
-      
-
-        private void OnDestroy()
-        {
-            StopTagDetector();
-        }
-
-      private  void StartDetect()
-        {
-
-            switch (currentRecognizerMode)
+            TagDetection[] frame; double age; long frames;
+            lock (session.FrameLock)
+            { age = Clock() - session.ReceivedAt; frame = age <= 2.0 ? session.Latest : null; frames = session.Frames; }
+            var running = session;
+            // One dispatch per render frame, retaining existing continuous pose/Found event behavior.
+            OnDetectedAprilTagEvent.Invoke(frame);
+            if (!ReferenceEquals(session, running)) return;
+            if (Time.unscaledTime >= nextLog)
             {
-                case RecognizerMode.None:
-
-                    return;
-            
-                case RecognizerMode.RGB_QRCode:
-                    OnDetectedAprilTagEvent?.Invoke(tagDetection);
-                    break;
-                case RecognizerMode.RGB_Apriltag:
-                    OnDetectedAprilTagEvent?.Invoke(tagDetection);
-                    break;
-                case RecognizerMode.FishEye_Apriltag:
-                    OnDetectedAprilTagEvent?.Invoke(tagDetection);
-
-                    break;
-                default:
-                    break;
-            }
-
-            if (tagDetection == null || tagDetection.Length == 0)
-            {
-                MyDebugTool.Log($"XVtagDetection.Length:tagDetection == null || tagDetection.Length == 0");
-
-                OnDetectedAprilTagEvent?.Invoke(null);
-                return;
-            }
-
-          
-
-            try
-            {
-                if (tagDetection.Length > 0)
-                {
-
-                    Debug.LogError("tagDetection.Length ==== " + tagDetection.Length);
-                   
-                    OnDetectedAprilTagEvent?.Invoke(tagDetection);
-                   
-                }
-                else
-                {
-
-                }
-            }
-            catch (Exception e)
-            {
-                //Handle exceptions
-                MyDebugTool.Log("tagDetection is Null!!!" + e.ToString());
+                Debug.Log($"[TAG-LIFE] mode={currentRecognizerMode} batches={frames} tags={frame?.Length ?? 0} fresh={age <= 2.0} owners={session.Owners.Count}");
+                nextLog = Time.unscaledTime + 5f;
             }
         }
-
-
-        /// <summary>
-        /// Toggle detection state
-        /// </summary>
-        /// <param name="isDetect"></param>
+        private static void RetireCompletedSession()
+        {
+            if (activeSession != null && activeSession.Cancelled && activeSession.Complete && activeSession.Owners.Count == 0)
+                activeSession = null;
+        }
         public void SetDetectStatus(bool isDetect)
         {
-            
-        }
-
-        private void StartFishEyeDetector() {
-            while (currentRecognizerMode== RecognizerMode.FishEye_Apriltag&&IsDetection)
+            if (isDetect)
             {
-                MyDebugTool.Log("StartFishEyeDetector1" );
-
-                tagDetection = XvAprilTag.StartFishEyeDetector(TagGroupName, size);//Fisheye mode
-
-
-                MyDebugTool.Log("StartFishEyeDetector2" );
-
+                var mode = currentRecognizerMode != RecognizerMode.None ? currentRecognizerMode : resumeMode;
+                if (mode != RecognizerMode.None) StartTagDetector(mode);
+            }
+            else
+            {
+                var mode = currentRecognizerMode; StopTagDetector(); resumeMode = mode;
             }
         }
-
-        private void StopFishEyeDetector()
+        public void StartTagDetector(RecognizerMode recognizerMode) =>
+            StartConfigured(recognizerMode, recognizerMode == RecognizerMode.RGB_QRCode ? "qr-code" : "36h11");
+        private void StartConfigured(RecognizerMode recognizerMode, string family)
         {
-            XvAprilTag.StopFishEyeDetector();
+            if (!Enum.IsDefined(typeof(RecognizerMode), recognizerMode)) { Debug.LogWarning("[TAG-LIFE] Unknown recognition mode ignored."); return; }
+            if (recognizerMode == RecognizerMode.None) { StopTagDetector(); return; }
+            if (IsDetection && session != null && session.Mode == recognizerMode && session.Size == size && session.Family == family) return;
+            if (session != null && session.Owners.Count > 1)
+            { Debug.LogWarning("[TAG-LIFE] Mode change refused while another manager shares this detector."); return; }
+            StopTagDetector();
+            currentRecognizerMode = recognizerMode; resumeMode = recognizerMode; tagGroupName = family;
+            if (!isActiveAndEnabled) return;
+            Debug.Log($"[TAG-LIFE] start requested mode={recognizerMode} size={size}");
+            startRoutine = StartCoroutine(StartWhenReady(Time.realtimeSinceStartup + 10f));
         }
-
-      
-
-
-        public void StartTagDetector(RecognizerMode recognizerMode) {
-            if (IsDetection && currentRecognizerMode == recognizerMode)
+        private IEnumerator StartWhenReady(float deadline)
+        {
+            yield return null;
+            try
             {
-                return;
+                while (true)
+                {
+                    RetireCompletedSession();
+                    if (readyNative() && (activeSession == null || !activeSession.Cancelled)) break;
+                    if (Time.realtimeSinceStartup >= deadline)
+                    {
+                        Debug.LogWarning("[TAG-LIFE] Start timeout: SDK not ready or previous native worker still stopping.");
+                        currentRecognizerMode = RecognizerMode.None; yield break;
+                    }
+                    yield return null;
+                }
+                if (!XvAprilTag.ValidSize(size)) { Debug.LogWarning("[TAG-LIFE] Start rejected: invalid physical tag size."); currentRecognizerMode = RecognizerMode.None; yield break; }
+                if (activeSession != null && (activeSession.Mode != currentRecognizerMode || activeSession.Family != tagGroupName || activeSession.Size != size))
+                { Debug.LogWarning("[TAG-LIFE] Another manager owns a different detector configuration."); currentRecognizerMode = RecognizerMode.None; yield break; }
+                bool first = activeSession == null;
+                if (first) activeSession = new Session { Mode = currentRecognizerMode, Family = tagGroupName, Size = size };
+                session = activeSession; session.Owners.Add(this);
+                if (currentRecognizerMode != RecognizerMode.FishEye_Apriltag)
+                { acquireRgb(this); rgbAcquired = true; }
+                if (first)
+                {
+                    var started = session;
+                    started.NativeStarted = true;
+                    if (currentRecognizerMode == RecognizerMode.FishEye_Apriltag)
+                    {
+                        started.Worker = new Thread(() => RunFish(started)) { IsBackground = true, Name = "SDK TagRecognition" };
+                        started.Worker.Start();
+                    }
+                    else startRgbNative(started.Family, started.Size, rgbCallback);
+                }
+                IsDetection = true;
+                Debug.Log($"[TAG-LIFE] started mode={currentRecognizerMode} owners={session.Owners.Count}");
             }
-
-            if (IsDetection) { 
-             StopTagDetector();
-            }
-            MyDebugTool.Log("StartTagDetector 1" + recognizerMode);
-            switch (recognizerMode)
+            finally
             {
-                case RecognizerMode.RGB_QRCode:
-
-                    if (!XvCameraManager.IsOn(XvCameraStreamType.ARCameraStream))
-                    {
-                       
-                        XvCameraManager.StartCapture(XvCameraStreamType.ARCameraStream);
-                    }
-                    TagGroupName = "qr-code";
-                    MyDebugTool.Log("StartTagDetector 11" + recognizerMode);
-
-                    XvAprilTag.StartRgbDetector(TagGroupName, Size, OnDetecterTags);
-                    MyDebugTool.Log("StartTagDetector 12" + recognizerMode);
-
-                    break;
-                case RecognizerMode.RGB_Apriltag:
-                    if (!XvCameraManager.IsOn(XvCameraStreamType.ARCameraStream))
-                    {
-                        XvCameraManager.StartCapture(XvCameraStreamType.ARCameraStream);
-                    }
-                    TagGroupName = "36h11";
-                    MyDebugTool.Log("StartTagDetector 21" + recognizerMode);
-
-                    XvAprilTag.StartRgbDetector(TagGroupName, Size, OnDetecterTags);
-                    MyDebugTool.Log("StartTagDetector 22" + recognizerMode);
-
-
-                    break;
-                case RecognizerMode.FishEye_Apriltag:
-                    TagGroupName = "36h11";
-                    Thread thread = new Thread(StartFishEyeDetector);
-                    thread.Start();
-
-                    break;
-                default:
-                    break;
+                startRoutine = null;
+                if (!IsDetection && session != null) StopTagDetector();
             }
-
-            IsDetection = true;
-              currentRecognizerMode = recognizerMode;
         }
         public void StopTagDetector()
         {
-
-            MyDebugTool.Log("StopTagDetector" + currentRecognizerMode);
-
-            switch (currentRecognizerMode)
+            if (startRoutine != null) StopCoroutine(startRoutine);
+            startRoutine = null;
+            var stopped = session; session = null;
+            bool wasActive = IsDetection || currentRecognizerMode != RecognizerMode.None;
+            IsDetection = false; currentRecognizerMode = RecognizerMode.None; resumeMode = RecognizerMode.None;
+            try
             {
-                case RecognizerMode.None:
-                    break;
-                case RecognizerMode.RGB_QRCode:
-                    XvAprilTag.StopRgbDetector();
-
-                    break;
-                case RecognizerMode.RGB_Apriltag:
-                    XvAprilTag.StopRgbDetector();
-                    break;
-                case RecognizerMode.FishEye_Apriltag:
-                    Invoke("StopFishEyeDetector",0.1f);
-
-                    break;
-                default:
-                    break;
-            }
-            currentRecognizerMode = RecognizerMode.None;
-            IsDetection = false;
-
-        }
-
-        [MonoPInvokeCallback(typeof(XvAprilTag.TagArrayCallback))]
-        private static void OnDetecterTags(IntPtr tagArrayPtr, int count)
-        {
-
-            MyDebugTool.Log("OnDetecterTags: count=" + count );
-
-            // Marshal TagArray
-            TagData tagArray = Marshal.PtrToStructure<TagData>(tagArrayPtr);
-            tagDetection = new TagDetection[count];
-            for (int i = 0; i < count; i++)
-            {
-                API.DetectData tag = tagArray.detect[i];
-              
-                TagDetection detection = new TagDetection();
-                detection.id = tag.tagID;
-                detection.translation = new Vector3(tag.position.x, tag.position.y, tag.position.z);
-                detection.rotation = new Vector3(tag.orientation.x, tag.orientation.y, tag.orientation.z);
-                detection.quaternion = new Vector4(tag.quaternion.x, tag.quaternion.y, tag.quaternion.z, tag.quaternion.w);
-                detection.confidence = tag.confidence;
-
-                if (tag.qrcode == null)
+                if (stopped != null)
                 {
-                    detection.qrcode = new byte[512];
+                    stopped.Owners.Remove(this);
+                    if (stopped.Owners.Count == 0)
+                    {
+                        stopped.Cancelled = true;
+                        lock (stopped.FrameLock) stopped.Latest = null;
+                        if (stopped.Mode != RecognizerMode.FishEye_Apriltag)
+                        {
+                            try { if (stopped.NativeStarted) stopRgbNative(); stopped.Complete = true; RetireCompletedSession(); }
+                            catch (Exception e) { stopped.Failure = e.Message; Debug.LogWarning("[TAG-LIFE] Native RGB stop failed; detector gate retained: " + e.Message); }
+                        }
+                    }
                 }
-                else { 
-                
-                    detection.qrcode = tag.qrcode;
+            }
+            finally
+            {
+                if (rgbAcquired) { rgbAcquired = false; releaseRgb(this); }
+                if (wasActive)
+                {
+                    OnDetectedAprilTagEvent.Invoke(null);
+                    Debug.Log($"[TAG-LIFE] stopped owners={stopped?.Owners.Count ?? 0} nativePending={stopped != null && stopped.Cancelled && !stopped.Complete}");
                 }
-                tagDetection[i] = detection;
-
-                MyDebugTool.Log("AprilTag##StartDetector detection translation:(" + detection.translation.x + "," + detection.translation.y + "," + detection.translation.z + ")");
-                MyDebugTool.Log("AprilTag##StartDetector detection rotation:(" + detection.rotation.x + "," + detection.rotation.y + "," + detection.rotation.z + ")");
-                MyDebugTool.Log("AprilTag##StartDetector detection quaternion:(" + detection.quaternion.x + "," + detection.quaternion.y + "," + detection.quaternion.z + "," + detection.quaternion.w + ")");
             }
         }
-
-
+        private static void RunFish(Session s)
+        {
+            try
+            {
+                while (!s.Cancelled)
+                {
+                    var frame = fishNative(s.Family, s.Size);
+                    Publish(s, frame);
+                    // Poll at most 50 times/second; never busy-spin while no tags are visible.
+                    for (int i = 0; i < 4 && !s.Cancelled; i++) Thread.Sleep(5);
+                }
+            }
+            catch (Exception e) { s.Failure = e.Message; }
+            finally
+            {
+                try { if (s.NativeStarted) stopFishNative(); s.Complete = true; Debug.Log("[TAG-LIFE] fisheye worker exited; native stop returned."); }
+                catch (Exception e) { s.Failure = e.Message; Debug.LogWarning("[TAG-LIFE] Native fisheye stop failed; detector gate retained: " + e.Message); }
+            }
+        }
+        private static void Publish(Session s, TagDetection[] frame)
+        {
+            lock (s.FrameLock)
+            {
+                if (s.Cancelled) return;
+                s.Latest = frame; s.ReceivedAt = Clock(); s.Frames++;
+            }
+        }
+        [MonoPInvokeCallback(typeof(XvAprilTag.TagArrayCallback))]
+        private static void OnDetecterTags(IntPtr pointer, int count)
+        {
+            var s = activeSession;
+            if (s == null || s.Cancelled || s.Mode == RecognizerMode.FishEye_Apriltag) return;
+            try
+            {
+                if (count < 0 || count > 64 || (count > 0 && pointer == IntPtr.Zero)) return;
+                var frame = count == 0 ? null : XvAprilTag.ConvertTags(Marshal.PtrToStructure<API.TagData>(pointer), count);
+                Publish(s, frame);
+            }
+            catch (Exception e) { Debug.LogWarning("[TAG-LIFE] invalid RGB callback: " + e.Message); }
+        }
     }
-    
-    public enum CameraType
-    {
-        Rgb = 0,//RGB camera
-        FishEye = 1,//Fisheye camera
-    }
-
-    public enum RecognizerMode
-    {
-        None,
-        RGB_QRCode,
-        RGB_Apriltag,
-        FishEye_Apriltag,
-    }
-
-
+    public enum CameraType { Rgb = 0, FishEye = 1 }
+    public enum RecognizerMode { None, RGB_QRCode, RGB_Apriltag, FishEye_Apriltag }
 }
-

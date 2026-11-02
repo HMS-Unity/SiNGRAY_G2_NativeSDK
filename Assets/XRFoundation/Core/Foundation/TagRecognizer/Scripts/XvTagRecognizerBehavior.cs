@@ -2,167 +2,78 @@ using UnityEngine;
 using UnityEngine.Events;
 namespace Singray.Foundation
 {
-
-    /// <summary>
-    /// Provides callbacks for successful recognition
-    /// </summary>
-
+    /// <summary>Applies recognition poses and preserves the configured Found/Lost UnityEvents.</summary>
     public class XvTagRecognizerBehavior : MonoBehaviour
     {
-
-        [Tooltip("Apriltag ID")]
-
-        public int id=-1;
-        [Tooltip("Use QR-code text as the ID")]
-        public string qrcodeID ;
-
+        [Tooltip("AprilTag ID")] public int id = -1;
+        [Tooltip("Match QR-code text by substring")] public string qrcodeID;
         public bool ifCheck = true;
-
         public UnityEvent OnFoundEvent = new UnityEvent();
         public UnityEvent OnLostEvent = new UnityEvent();
-
-        private XvTagRecognizerManager aprilTagManager;
-
-
+        [SerializeField] private XvTagRecognizerManager aprilTagManager;
         private TagDetection tagDetection;
-        public TagDetection TagDetection
-        {
-            get { return tagDetection; }
-        }
-
+        public TagDetection TagDetection => tagDetection;
+        private bool found;
         public void btnClick(GameObject btn)
         {
-            switch (btn.name)
-            {
-                case "StopBtn":
-                    ifCheck = false;
-                    break;
-                case "StartBtn":
-                    ifCheck = true;
-                    break;
-            }
+            if (btn == null) return;
+            if (btn.name == "StopBtn") ifCheck = false;
+            else if (btn.name == "StartBtn") ifCheck = true;
         }
-
-
         private void Awake()
         {
-       
-            aprilTagManager = FindAnyObjectByType<XvTagRecognizerManager>();
-
-            if (id==-1) {
-                int.TryParse(gameObject.name, out id);
-            }
-           // 
+            if (aprilTagManager == null) aprilTagManager = GetComponentInParent<XvTagRecognizerManager>();
+            if (aprilTagManager == null) aprilTagManager = FindAnyObjectByType<XvTagRecognizerManager>();
+            if (id == -1 && int.TryParse(gameObject.name, out var parsed)) id = parsed;
         }
-
         private void OnEnable()
         {
-            if (aprilTagManager != null)
-            {
-                aprilTagManager.OnDetectedAprilTagEvent.AddListener(OnDetectedAprilTagEvent);
-            }
+            if (aprilTagManager != null) aprilTagManager.OnDetectedAprilTagEvent.AddListener(OnDetectedAprilTagEvent);
         }
-
         private void OnDisable()
         {
-            if (aprilTagManager != null)
-            {
-                aprilTagManager.OnDetectedAprilTagEvent.RemoveListener(OnDetectedAprilTagEvent);
-            }
-        }
-        // Start is called before the first frame update
-        void Start()
-        {
-            if (OnFoundEvent == null)
-            {
-                OnFoundEvent = new UnityEvent();
-            }
-            if (OnLostEvent == null)
-            {
-                OnLostEvent = new UnityEvent();
-            }
+            if (aprilTagManager != null) aprilTagManager.OnDetectedAprilTagEvent.RemoveListener(OnDetectedAprilTagEvent);
+            tagDetection = null; found = false;
             OnLostEvent?.Invoke();
-
         }
-
-
-
-        private void OnDetectedAprilTagEvent(TagDetection[] tagDetections)
+        private void Start()
         {
-            bool isFound = false;
-            if (ifCheck == false)
+            if (OnFoundEvent == null) OnFoundEvent = new UnityEvent();
+            if (OnLostEvent == null) OnLostEvent = new UnityEvent();
+            OnLostEvent.Invoke();
+        }
+        private void OnDetectedAprilTagEvent(TagDetection[] detections)
+        {
+            // The existing per-tag Stop button freezes its current pose until Start is selected.
+            if (!ifCheck || aprilTagManager == null) return;
+            TagDetection match = null;
+            if (detections != null)
             {
-                return;
-            }
-
-            if (tagDetections == null)
-            {
-                isFound = false;
-                MyDebugTool.Log("tagDetection == null");
-            }
-            else
-            {
-                //Recognition succeeded
-                for (int i = 0; i < tagDetections.Length; i++)
+                foreach (var detection in detections)
                 {
-                    MyDebugTool.Log("detected：" + tagDetections[i].id + "   " + tagDetections[i].confidence + "  " + aprilTagManager.Confidence);
-
-                    if (tagDetections[i].confidence >= aprilTagManager.Confidence)
-                    {
-                        if (aprilTagManager.TagGroupName == "36h11")
-                        {
-                            if (tagDetections[i].id == id)
-                            {
-                                isFound = true;
-                                Vector3 position = tagDetections[i].translation;
-                                Quaternion rotation = new Quaternion(tagDetections[i].quaternion[0], tagDetections[i].quaternion[1], tagDetections[i].quaternion[2], tagDetections[i].quaternion[3]);
-                                transform.position = position;
-                                transform.rotation = rotation;
-                                tagDetection = tagDetections[i];
-                                break;
-                            }
-                        }
-                        else {
-                            MyDebugTool.Log("Parsing QR-code contents: ");
-
-                            string qrText = System.Text.Encoding.UTF8.GetString(tagDetections[i].qrcode).Trim();
-
-                            MyDebugTool.Log("QR-code contents: "+ tagDetections[i].qrcode+"  "+ qrText);
-                          
-                            if (qrText .Contains(qrcodeID) )
-                            {
-                                MyDebugTool.Log("qrText:" + qrText);
-                                MyDebugTool.Log("qrTextID:" + qrcodeID);
-                                isFound = true;
-                                Vector3 position = tagDetections[i].translation;
-                                Quaternion rotation = new Quaternion(tagDetections[i].quaternion[0], tagDetections[i].quaternion[1], tagDetections[i].quaternion[2], tagDetections[i].quaternion[3]);
-                                transform.position = position;
-                                transform.rotation = rotation;
-                                tagDetection = tagDetections[i];
-                                break;
-                            }
-                        }
-                        
-                        
-                    }
+                    if (detection == null || !XvAprilTag.Finite(detection.confidence) || detection.confidence < aprilTagManager.Confidence) continue;
+                    bool matches = aprilTagManager.TagGroupName == "36h11" ? detection.id == id :
+                        !string.IsNullOrEmpty(XvAprilTag.QrText(detection.qrcode)) && XvAprilTag.QrText(detection.qrcode).Contains(qrcodeID ?? string.Empty);
+                    if (!matches) continue;
+                    var p = detection.translation; var q = detection.quaternion;
+                    if (!XvAprilTag.Finite(p.x) || !XvAprilTag.Finite(p.y) || !XvAprilTag.Finite(p.z) ||
+                        !XvAprilTag.Finite(q.x) || !XvAprilTag.Finite(q.y) || !XvAprilTag.Finite(q.z) || !XvAprilTag.Finite(q.w) || q.sqrMagnitude < 0.0000001f) continue;
+                    match = detection; break;
                 }
             }
-
-            if (isFound)
+            if (match != null)
             {
-                MyDebugTool.Log("detected");
-
+                transform.SetPositionAndRotation(match.translation, new Quaternion(match.quaternion.x, match.quaternion.y, match.quaternion.z, match.quaternion.w));
                 transform.localScale = Vector3.one * (float)aprilTagManager.Size;
-                OnFoundEvent?.Invoke();
+                tagDetection = match;
+                if (!found) Debug.Log($"[TAG-LIFE] found id={match.id} mode={aprilTagManager.RecognizerMode}");
+                found = true; OnFoundEvent?.Invoke();
             }
             else
             {
-                //Debug.Log("Tracking lost");
-
-                OnLostEvent?.Invoke();
-
+                if (found) Debug.Log("[TAG-LIFE] lost id=" + id);
+                found = false; tagDetection = null; OnLostEvent?.Invoke();
             }
         }
-
     }
 }

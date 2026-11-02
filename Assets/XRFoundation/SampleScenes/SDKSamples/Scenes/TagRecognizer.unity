@@ -38,7 +38,6 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0, g: 0, b: 0, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -219,6 +218,17 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 1398875487168861571, guid: ac6dda225f9f3af4db2090565362456c, type: 3}
   m_PrefabInstance: {fileID: 351680675}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &351680677 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5137001991726904454, guid: ac6dda225f9f3af4db2090565362456c, type: 3}
+  m_PrefabInstance: {fileID: 351680675}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a505ef873bdf3847a97d2cb3e7744ae, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &777336482
 GameObject:
   m_ObjectHideFlags: 0
@@ -359,6 +369,14 @@ PrefabInstance:
     - target: {fileID: 3353857358589903054, guid: aa5896f181a2e9d43b349a77b54d44b9, type: 3}
       propertyPath: tagManager
       value: 
+      objectReference: {fileID: 351680677}
+    - target: {fileID: 3545162681331642086, guid: aa5896f181a2e9d43b349a77b54d44b9, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5122469258147638071, guid: aa5896f181a2e9d43b349a77b54d44b9, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8271811036665690643, guid: aa5896f181a2e9d43b349a77b54d44b9, type: 3}
       propertyPath: m_LocalPosition.x
@@ -400,13 +418,14 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 9056170594574422188, guid: aa5896f181a2e9d43b349a77b54d44b9, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 3929043650631431642, guid: aa5896f181a2e9d43b349a77b54d44b9, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 0}
     - targetCorrespondingSourceObject: {fileID: 8603909983871467030, guid: aa5896f181a2e9d43b349a77b54d44b9, type: 3}
       insertIndex: -1
       addedObject: {fileID: 0}
@@ -431,19 +450,16 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 7700219204789018895, guid: aa5896f181a2e9d43b349a77b54d44b9, type: 3}
       insertIndex: -1
       addedObject: {fileID: 0}
-    - targetCorrespondingSourceObject: {fileID: 2704631767852014660, guid: aa5896f181a2e9d43b349a77b54d44b9, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 0}
-    - targetCorrespondingSourceObject: {fileID: 6635860996974846775, guid: aa5896f181a2e9d43b349a77b54d44b9, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 0}
     - targetCorrespondingSourceObject: {fileID: 8623938867955226607, guid: aa5896f181a2e9d43b349a77b54d44b9, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 0}
+    - targetCorrespondingSourceObject: {fileID: 6986971420404914257, guid: aa5896f181a2e9d43b349a77b54d44b9, type: 3}
       insertIndex: -1
       addedObject: {fileID: 0}
     - targetCorrespondingSourceObject: {fileID: 4256260904298128795, guid: aa5896f181a2e9d43b349a77b54d44b9, type: 3}
       insertIndex: -1
       addedObject: {fileID: 0}
-    - targetCorrespondingSourceObject: {fileID: 6453851546441604002, guid: aa5896f181a2e9d43b349a77b54d44b9, type: 3}
+    - targetCorrespondingSourceObject: {fileID: 3929043650631431642, guid: aa5896f181a2e9d43b349a77b54d44b9, type: 3}
       insertIndex: -1
       addedObject: {fileID: 0}
   m_SourcePrefab: {fileID: 100100000, guid: aa5896f181a2e9d43b349a77b54d44b9, type: 3}
@@ -499,6 +515,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 7529937009987598444, guid: bdac109ed89d8d848ba6ecd99dfd8ed2, type: 3}
+      propertyPath: aprilTagManager
+      value: 
+      objectReference: {fileID: 351680677}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
