@@ -77,3 +77,7 @@ By explicit user selection, it is now a standard SDK XR scene with an Editor-vis
 The panel uses existing MRTK press controls and shared SDK input APIs. Four default keys and rotary simulation are supported; two additional semantic-key rows require custom profiles. No raw codes were invented.
 Validated 23 core assertions, 15 runtime panel/lifecycle assertions and 27 Android assemblies; inspected an actual Editor render. Physical hardware behavior remains pending. No device installation/launch was performed.
 The standalone scene includes the existing native XR host; the content prefab is intended for an already initialized SDK scene. Hub layout and registration were not changed.
+
+
+2026-11-03 customer delivery documentation publication
+Docs/Delivery provides the English integration guide, delivery checklist and file/native/package/sample/shared-asset inventories. Tools/Delivery provides internal inventory and validation scripts. The inventories record the local reviewed working tree, including unpublished feature changes; this documentation-only publication does not synchronize the later SDK runtime/sample implementation. The local review passed 3074 file/document checks, not clean-project or new hardware acceptance. Clean-project import/build/init, final source synchronization, shared-file publication review and license/firmware acceptance remain pending. Chinese translations, local review copies, APKs, device evidence and dedicated Wi-Fi/Bluetooth work are not included. Existing customer API/asset layout and the source index are preserved.

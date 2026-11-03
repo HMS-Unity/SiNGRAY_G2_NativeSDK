@@ -18,7 +18,7 @@ See the [Release Notes](../RELEASE_NOTES.md) for changes since October 6, 2026. 
 | CPU architecture | ARM64 |
 | Minimum Android API | 30 |
 | Target Android API | 35 |
-| Android application identifier | `com.singray.SDK` |
+| Android application identifier | `com.singray.ToFViewer` |
 | MRTK packages | 2.8.3, provided as local package archives |
 | Large binary storage | Git LFS for `.aar` and `.tgz` files |
 
@@ -89,7 +89,7 @@ Actual Editor screenshot, October 7, 2026. The image illustrates scene selection
 ```sh
 adb devices
 adb install -r path/to/SiNGRAY-G2.apk
-adb shell monkey -p com.singray.SDK -c android.intent.category.LAUNCHER 1
+adb shell monkey -p com.singray.ToFViewer -c android.intent.category.LAUNCHER 1
 ```
 
 Launch the application on the device and grant requested permissions needed by the selected feature. If installation reports an incompatible signing certificate, use the same signing configuration as the installed application or deliberately remove that installation after preserving its data.
