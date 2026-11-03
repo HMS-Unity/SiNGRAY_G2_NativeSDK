@@ -9,7 +9,17 @@ namespace Singray.InputSystem.Editor
     {
         public override void OnInspectorGUI()
         {
-            DrawDefaultInspector();
+            EditorGUILayout.HelpBox("Bind an object and method with + under an event. Click events fire once after a matching press and release. No application actions are assigned by default.", MessageType.Info);
+            serializedObject.Update();
+            var property = serializedObject.GetIterator();
+            for (bool enterChildren = true; property.NextVisible(enterChildren); enterChildren = false)
+            {
+                using (new EditorGUI.DisabledScope(property.propertyPath == "m_Script"))
+                    EditorGUILayout.PropertyField(property, true);
+                string help = EventHelp(property.propertyPath);
+                if (help != null) EditorGUILayout.LabelField(help, EditorStyles.wordWrappedMiniLabel);
+            }
+            serializedObject.ApplyModifiedProperties();
             var input = (SingrayKeyInput)target;
             if (!Application.isPlaying) { EditorGUILayout.HelpBox("Add this component to your SDK scene and bind Click Events. Enter Play Mode to simulate input.", MessageType.Info); return; }
             EditorGUILayout.LabelField("Listening", input.IsListening.ToString());
@@ -34,6 +44,25 @@ namespace Singray.InputSystem.Editor
             if (GUILayout.Button("Knob +1")) input.SimulateKnob(1);
             EditorGUILayout.EndHorizontal();
             Repaint();
+        }
+
+        private static string EventHelp(string name)
+        {
+            switch (name)
+            {
+                case "onConfirmClick": return "Confirm / select. Assign your selection action.";
+                case "onBackClick": return "Back / navigation. No automatic exit. Review the rig's backHome setting if your app handles Back.";
+                case "onVolumeUpClick": return "Volume Up key. This event does not adjust system volume by itself.";
+                case "onVolumeDownClick": return "Volume Down key. This event does not adjust system volume by itself.";
+                case "onKnobButtonClick": return "Knob press. Requires a custom KnobButton mapping; not mapped by default.";
+                case "onAdjustmentClick": return "Adjustment key. Requires a custom Adjustment mapping; no automatic IPD action.";
+                case "onKnobRotated": return "Signed step delta (+ / -). Bind a Dynamic int method. Confirm physical direction on your device.";
+                case "onKeyDown": return "First press; repeated Down packets are filtered. The argument identifies the key.";
+                case "onKeyUp": return "Release of a held key; normally followed by a click.";
+                case "onKeyClick": return "Click for any mapped key. Bind each business action once, here or in its per-key event.";
+                case "onKeyCancelled": return "Held input cancelled by lifecycle/device/mapping changes or queue overflow. No click is generated.";
+                default: return null;
+            }
         }
     }
 }

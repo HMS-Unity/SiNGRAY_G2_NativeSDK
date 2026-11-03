@@ -16,24 +16,38 @@ namespace Singray.InputSystem
     [DefaultExecutionOrder(-900)]
     public sealed class SingrayKeyInput : MonoBehaviour
     {
+        [Tooltip("Auto uses device events in Android players and simulation in the Editor. Simulation uses simulated events on every platform. Re-enable the component after changing this at runtime.")]
         [SerializeField] private SingrayKeyInputMode runtimeMode = SingrayKeyInputMode.Auto;
         [Tooltip("Optional explicit mapping. When empty, matching automatic profiles are tried before the NativeSDK default table.")]
         [SerializeField] private SingrayKeyMappingProfile mappingProfile;
+        [Tooltip("When Mapping Profile is empty, the first profile matching the connected device name is used. With no match, the NativeSDK default table is used.")]
         [SerializeField] private SingrayKeyMappingProfile[] automaticProfiles = Array.Empty<SingrayKeyMappingProfile>();
+        [Tooltip("Log input events and mapping diagnostics. Keep disabled for normal use.")]
         [SerializeField] private bool debugLogging;
 
         [Header("Click Events")]
+        [Tooltip("Confirm/selection key click. Fires once after a matching press and release. Assign the application action here.")]
         [SerializeField] private UnityEvent onConfirmClick = new UnityEvent();
+        [Tooltip("Back/navigation key click. This event does not exit the app. If the application owns Back, also review the XR rig backHome setting.")]
         [SerializeField] private UnityEvent onBackClick = new UnityEvent();
+        [Tooltip("Volume Up key click. This component does not change system volume; bind a volume action only when your application requires it.")]
         [SerializeField] private UnityEvent onVolumeUpClick = new UnityEvent();
+        [Tooltip("Volume Down key click. This component does not change system volume; bind a volume action only when your application requires it.")]
         [SerializeField] private UnityEvent onVolumeDownClick = new UnityEvent();
+        [Tooltip("Knob-button click. Requires a custom mapping for KnobButton; the default table does not define this key.")]
         [SerializeField] private UnityEvent onKnobButtonClick = new UnityEvent();
+        [Tooltip("Application adjustment-key click. Requires a custom mapping for Adjustment; it is not an automatic IPD or hardware-setting action.")]
         [SerializeField] private UnityEvent onAdjustmentClick = new UnityEvent();
+        [Tooltip("Rotation step delta: positive for configured clockwise steps, negative for anticlockwise. Check direction on the target device. Use a Dynamic int listener to receive the delta.")]
         [SerializeField] private SingrayKnobUnityEvent onKnobRotated = new SingrayKnobUnityEvent();
         [Header("Advanced Events")]
+        [Tooltip("First press of a mapped key. Repeated Down packets are filtered. The event argument identifies the key.")]
         [SerializeField] private SingrayKeyUnityEvent onKeyDown = new SingrayKeyUnityEvent();
+        [Tooltip("Release of a held key. A normal release is followed by Key Click unless the component is disabled or remapped during delivery.")]
         [SerializeField] private SingrayKeyUnityEvent onKeyUp = new SingrayKeyUnityEvent();
+        [Tooltip("Generic click event for all mapped keys. Do not bind the same business action here and in its per-key click event.")]
         [SerializeField] private SingrayKeyUnityEvent onKeyClick = new SingrayKeyUnityEvent();
+        [Tooltip("Held input was cancelled, for example by disable, pause, device loss, remapping or queue overflow. Cancellation does not produce a click.")]
         [SerializeField] private SingrayKeyUnityEvent onKeyCancelled = new SingrayKeyUnityEvent();
 
         public event Action<SingrayKeyEvent> KeyDown;
