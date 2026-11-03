@@ -4,6 +4,14 @@ This module is part of NativeSDK 4.2. It exposes device keys without depending o
 
 ## Quick start: Inspector
 
+The SDK `XvXRInput` prefabs under `Core/Sdk/XR/Prefabs` and `Core/Sdk/XR/Resources` now include one `SingrayKeyInput` component on their root. Select that object and bind its **Click Events** directly; a separate key-input object is not required for the same application actions. The Resources prefab is also used by the SDK scene setup command. Existing unpacked/custom rigs can add the component manually.
+
+Default event bindings are empty. The existing XR/hand components, transforms, key mappings and public APIs are unchanged. Editor simulation and Android device events use the same component. If the scene already has a KeyInputDemo or another input listener, each component can observe the event; bind each business action once. Disable the extra component if it is not needed, rather than stopping the shared native event stream. Existing explicit C# subscriptions remain supported.
+
+KnobButton and Adjustment event slots require a suitable custom device mapping; their presence does not add new hardware key codes to the default table.
+
+The Inspector shows an English explanation below each event and hover tooltips for configuration fields. Click events require a matching press/release; generic and per-key events should not invoke the same business action twice. On Knob Rotated passes a signed step delta to a Dynamic int listener. Back navigation and system-volume actions remain application-owned.
+
 1. Open an existing NativeSDK scene containing its initialized device rig.
 2. Add **Singray > Input > Key Input** to a GameObject, or drag `Prefabs/SingrayKeyInput.prefab` into the scene.
 3. Leave Runtime Mode at **Auto**. Android players use the native device; the Editor and other platforms use simulation.

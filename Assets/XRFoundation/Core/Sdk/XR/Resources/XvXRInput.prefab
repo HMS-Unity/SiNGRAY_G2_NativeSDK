@@ -54,6 +54,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7925566972828460753}
   - component: {fileID: 7925566972828460752}
+  - component: {fileID: 7755110300000000001}
   m_Layer: 0
   m_Name: XvXRInput
   m_TagString: Untagged
@@ -133,3 +134,52 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_HandEnum: 1
+--- !u!114 &7755110300000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7925566972828460759}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d6a1c100327ee9f4db8754c26f3db5c9, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  runtimeMode: 0
+  mappingProfile: {fileID: 0}
+  automaticProfiles: []
+  debugLogging: 0
+  onConfirmClick:
+    m_PersistentCalls:
+      m_Calls: []
+  onBackClick:
+    m_PersistentCalls:
+      m_Calls: []
+  onVolumeUpClick:
+    m_PersistentCalls:
+      m_Calls: []
+  onVolumeDownClick:
+    m_PersistentCalls:
+      m_Calls: []
+  onKnobButtonClick:
+    m_PersistentCalls:
+      m_Calls: []
+  onAdjustmentClick:
+    m_PersistentCalls:
+      m_Calls: []
+  onKnobRotated:
+    m_PersistentCalls:
+      m_Calls: []
+  onKeyDown:
+    m_PersistentCalls:
+      m_Calls: []
+  onKeyUp:
+    m_PersistentCalls:
+      m_Calls: []
+  onKeyClick:
+    m_PersistentCalls:
+      m_Calls: []
+  onKeyCancelled:
+    m_PersistentCalls:
+      m_Calls: []
