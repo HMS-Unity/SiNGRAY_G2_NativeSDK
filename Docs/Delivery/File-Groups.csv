@@ -1,0 +1,13 @@
+﻿category,files,bytes,examplePath,decision
+COMPATIBILITY_SAMPLE,41,628901,Assets/XRFoundation/SampleScenes/PlaneDetection/Materials/Arrow Material.mat,Retain references only; not an accepted primary entry in this pass
+CUSTOMER_SETUP,4,17643,Assets/XRFoundation/Core/Editor/SDKLayerSetup.cs,Keep required scene and layer setup
+INTEGRATION_SUPPORT,43,111025,Assets/MixedRealityToolkit.Generated/link.xml,"Preserve referenced assets, folders and metadata"
+INTERNAL,36,137215,Assets/XRFoundation/Core/Editor/BuildVerification.cs,Development validation/build verification
+OPTIONAL_EDITOR,9,10317,Assets/XRFoundation/Core/Editor/AssetSelectPopUpWindow.cs,Optional export/build utility; review dependencies before omission
+OPTIONAL_SAMPLE,397,13459509,Assets/XRFoundation/SampleScenes/Gaze/Materials/Gaze 1.mat,Integration example; keep scene/prefab dependency closure
+PACKAGE_DEPENDENCY,4,73347340,Packages/MixedReality/com.microsoft.mixedreality.toolkit.examples-2.8.3.tgz,Local MRTK 2.8.3 package archive
+REFERENCE_CONFIG,23,67073,ProjectSettings/AudioManager.asset,Reference only; merge settings and use customer signing/identity
+REVIEW_HOLD,26,35980810,Assets/Plugins/Android/AndroidManifest.xml,Shared Android integration; retain required chain and review excluded feature changes
+SAMPLE_SUPPORT,3,531,Assets/Singray/Branding/Android.meta,Branding referenced by sample assets; inspect dependency closure
+SDK_RUNTIME,834,244882661,Assets/XRFoundation/Core/AssemblyInfo.cs,Conservative runtime integration set; not a proven minimal subset
+THIRD_PARTY,89,5045138,Assets/XRFoundation/ThirdParty/Newtonsoft.Json.13.0.3/.signature.p7s,"Retain required assets, importer metadata and notices"

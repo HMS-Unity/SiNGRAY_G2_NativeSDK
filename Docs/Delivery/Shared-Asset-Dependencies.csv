@@ -1,0 +1,7 @@
+﻿source,target,targetCategory,guid
+Assets/XRFoundation/Core/Foundation/Gaze/Resources/XvHeadGazeInputController.prefab,Assets/XRFoundation/SampleScenes/Gaze/Materials/Gaze.mat,OPTIONAL_SAMPLE,df2f5cc0cdc4e4a4d8a07be793307657
+Assets/XRFoundation/Core/Foundation/Gaze/Scripts/UserInputEvent/Scenes/SampleScene.unity,Assets/XRFoundation/SampleScenes/TagRecognizer/Materials/apriltagsphere.mat,OPTIONAL_SAMPLE,d44fa588b1ff07046a53db68faf167bd
+Assets/XRFoundation/Core/Foundation/Keyboard/Resources/Keyboard 1.prefab,Assets/XRFoundation/SampleScenes/Keyboard/Sprites/fixed.png,OPTIONAL_SAMPLE,eeec7815aa216694db6e11a078fdf8b4
+Assets/XRFoundation/Core/Foundation/MRVideoCapture/Resources/XvMRVideoCaptureManager.prefab,Assets/XRFoundation/SampleScenes/Viewer/Materials/Video.mat,OPTIONAL_SAMPLE,62d070869e89ddd409ffb7998610df6b
+Assets/XRFoundation/Core/Foundation/SpatialMesh/Resources/XvSpatialMeshManager.prefab,Assets/XRFoundation/SampleScenes/SpatialMesh/Materials/MeshMat.mat,OPTIONAL_SAMPLE,0ca717484e9f5d64eab9daf79ce589ab
+Assets/XRFoundation/Core/Foundation/TagRecognizer/Resources/XvTagRecognizerBehavior.prefab,Assets/XRFoundation/SampleScenes/TagRecognizer/Materials/apriltagcube 1.mat,OPTIONAL_SAMPLE,96b3bb791216c3147a6f66e0997bb751
