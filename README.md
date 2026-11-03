@@ -4,6 +4,8 @@ Native SDK and Unity integration for SiNGRAY G2 AR devices, including Android na
 
 ## Documentation
 
+- [Customer SDK Delivery](Docs/Delivery/README.md): integration files, dependency inventories, local review scope and clean-project acceptance checklist.
+
 - [Release Notes](RELEASE_NOTES.md): versioned development changes since October 6, 2026, validation results, and upgrade notes.
 - [Demo and User Guide](Docs/Demo-and-User-Guide.md): environment setup, demo scenes, Android builds, device operation, integration, and troubleshooting.
 - [API Reference](Docs/API-Reference.md): product interfaces, sensor settings, events, data types, Foundation feature managers, and native interop guidance.
