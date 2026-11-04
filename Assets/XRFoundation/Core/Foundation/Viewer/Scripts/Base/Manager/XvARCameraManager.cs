@@ -20,6 +20,7 @@ namespace Singray.Foundation
 
         private XvCameraBase frameBase;
         private bool isOn;
+        private int lastUpdateFrame = -1;
         public bool IsOn { get { return isOn; } }
         public void StartCapture(XvARCameraParameter xvARCameraParameter)
         {
@@ -69,6 +70,10 @@ namespace Singray.Foundation
 #if UNITY_EDITOR
             return;
 #endif
+            // Several scene managers can drive this shared reader in the same Unity frame.
+            int frame = UnityEngine.Time.frameCount;
+            if (lastUpdateFrame == frame) return;
+            lastUpdateFrame = frame;
             frameBase?.Update();
         }
     }

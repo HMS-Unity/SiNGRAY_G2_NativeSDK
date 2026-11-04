@@ -101,18 +101,31 @@ namespace Singray.Foundation
         internal void SelectResolution(RgbResolution mode)
         {
             if (owner == null || cameras == null || !isActiveAndEnabled || Array.IndexOf(Modes, mode) < 0) return;
+            if (XvCaptureLease.HasOtherOwners(XvCameraStreamType.ARCameraStream, cameras))
+            {
+                SetStatus("RGB is in use by another feature. Stop that feature before switching resolution.");
+                Debug.LogWarning("[Viewer RGB] resolution switch blocked by another RGB owner: " + mode, this);
+                return;
+            }
+            if (requested && !timeoutReported && cameras.XvARCameraParameter.rgbResolution == mode) return;
             // Stop clears the previous native stream and texture; allow deferred texture destruction to run.
             owner.StopARCamera();
-            cameras.XvARCameraParameter.rgbResolution = mode;
-            SetStatus("Switching RGB to " + ModeLabel() + "...");
-            switchRoutine = StartCoroutine(RestartPreview());
+            SetStatus("Switching RGB to " + Labels[Array.IndexOf(Modes, mode)] + "...");
+            switchRoutine = StartCoroutine(RestartPreview(mode));
         }
 
-        private IEnumerator RestartPreview()
+        private IEnumerator RestartPreview(RgbResolution mode)
         {
             yield return null;
             yield return null;
             switchRoutine = null;
+            if (XvCaptureLease.HasOtherOwners(XvCameraStreamType.ARCameraStream, cameras))
+            {
+                SetStatus("RGB is in use by another feature. Select a resolution after it stops.");
+                Debug.LogWarning("[Viewer RGB] restart blocked by another RGB owner", this);
+                yield break;
+            }
+            cameras.XvARCameraParameter.rgbResolution = mode;
             owner.StartARCamera();
         }
 

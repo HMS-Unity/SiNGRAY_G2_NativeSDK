@@ -18,6 +18,8 @@ namespace Singray.Foundation
             return set.Add(owner);
         }
         internal static bool HasOwners(XvCameraStreamType type) => owners.TryGetValue(type, out var set) && set.Count > 0;
+        internal static bool HasOtherOwners(XvCameraStreamType type, object owner) =>
+            owners.TryGetValue(type, out var set) && set.Count > (set.Contains(owner) ? 1 : 0);
         internal static bool Release(XvCameraStreamType type, object owner)
         {
             if (!owners.TryGetValue(type, out var set)) return true;

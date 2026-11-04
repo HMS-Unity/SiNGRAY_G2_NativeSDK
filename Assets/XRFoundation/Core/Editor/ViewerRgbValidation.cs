@@ -87,6 +87,33 @@ namespace Singray.Foundation
                 Invoke(panel, "NotifyStopped");
                 Require(status.text.Contains("RGB stopped"), "Stop did not reset Viewer status.");
 
+                var switchProbeObject = new GameObject("RGB switch guard probe");
+                SceneManager.MoveGameObjectToScene(switchProbeObject, scene);
+                var switchProbe = switchProbeObject.AddComponent<XvRgbResolutionPanel>();
+                typeof(XvRgbResolutionPanel).GetField("owner", Instance).SetValue(switchProbe, demo);
+                typeof(XvRgbResolutionPanel).GetField("cameras", Instance).SetValue(switchProbe, manager);
+                typeof(XvRgbResolutionPanel).GetField("status", Instance).SetValue(switchProbe, status);
+                var otherOwner = new object();
+                var lease = typeof(XvCameraManager).Assembly.GetType("Singray.Foundation.XvCaptureLease", true);
+                const BindingFlags leaseFlags = BindingFlags.Static | BindingFlags.NonPublic;
+                object LeaseCall(string method, object owner) => lease.GetMethod(method, leaseFlags)
+                    .Invoke(null, new[] { (object)XvCameraStreamType.ARCameraStream, owner });
+                LeaseCall("Register", manager);
+                LeaseCall("Register", otherOwner);
+                try
+                {
+                    Invoke(switchProbe, "SelectResolution", RgbResolution.RGB_3840x2160);
+                    Require(status.text.Contains("in use by another feature") &&
+                        manager.XvARCameraParameter.rgbResolution == RgbResolution.RGB_1280x720 &&
+                        (bool)LeaseCall("HasOtherOwners", otherOwner),
+                        "Shared RGB switch changed the mode or released the Viewer lease.");
+                }
+                finally
+                {
+                    LeaseCall("Release", otherOwner);
+                    LeaseCall("Release", manager);
+                }
+
                 var canvasObject = demo.arCameraImage.GetComponentInParent<Canvas>(true).gameObject;
                 var canvas = canvasObject.GetComponent<Canvas>();
                 canvas.renderMode = RenderMode.WorldSpace;
@@ -130,7 +157,7 @@ namespace Singray.Foundation
                 }
                 finally { RenderTexture.active = previous; }
                 File.WriteAllText(output + "/validation.txt", "PASS: six mode controls; idempotent setup; cloned callbacks removed; " +
-                    "requested/actual mismatch; no-frame timeout; recovery; stop status; all original tile anchors/sizes/scales preserved; " +
+                    "requested/actual mismatch; no-frame timeout; recovery; stop status; shared RGB switch guard; all original tile anchors/sizes/scales preserved; " +
                     "eight previews including four fisheyes enabled; Compute Unit hidden; ToF depth/IR horizontal UV mirroring. Grid preview rendered.\n");
                 Debug.Log("Viewer RGB control validation PASSED.");
             }
