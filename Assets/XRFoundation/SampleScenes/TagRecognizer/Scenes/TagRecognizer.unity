@@ -13837,7 +13837,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "Size\uFF1A"
+  m_Text: "Size:"
 --- !u!224 &6839718434835686078
 RectTransform:
   m_ObjectHideFlags: 0

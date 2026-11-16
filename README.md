@@ -71,3 +71,11 @@ See [change notes](Docs/SDK-Changes-20261102.txt) and [customer delivery plan](D
 independent RGB-only 36h11/ID0 detection and 80 mm PnP, timestamped world Plane,
 lock comparison and left-palm MR recording. Includes technical route, reproduction
 steps and evidence limits; original sample scenes remain unchanged.
+
+## English SDK wording
+
+SDK comments, UI and documentation use English. The repository-wide audit also
+checks escaped serialized text and legacy encodings, with explicit hash-bound
+exceptions for approved functional language data. See
+[SDK English wording audit](Docs/SDK-English-Language-Audit.md) and run
+`python Tools/Validation/check_sdk_english.py` before publishing wording changes.

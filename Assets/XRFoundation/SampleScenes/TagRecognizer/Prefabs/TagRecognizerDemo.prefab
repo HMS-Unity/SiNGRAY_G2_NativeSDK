@@ -5290,7 +5290,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "Size\uFF1A"
+  m_Text: "Size:"
 --- !u!1 &2778116439438435842
 GameObject:
   m_ObjectHideFlags: 0

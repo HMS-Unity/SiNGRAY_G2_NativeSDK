@@ -139,7 +139,7 @@ namespace Singray.Foundation
                         //}
                         frameArrived?.Invoke(cameraData);
 
-                        MyDebugTool.Log("xslam_get_tof_image " + width + "x" + height + " timestamp：  " + timestamp);
+                        MyDebugTool.Log("xslam_get_tof_image " + width + "x" + height + " timestamp:  " + timestamp);
                       
                     }
                 else

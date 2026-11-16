@@ -271,7 +271,7 @@ public class UvcPluginWrapper : MonoBehaviour, ICustomInputField
   
     public void onSoftInputMethodStatus(string showStatus)
     {
-        MyDebugTool.Log("showStatus：" + showStatus);
+        MyDebugTool.Log("showStatus:" + showStatus);
 
         if (showStatus == "true")
         {

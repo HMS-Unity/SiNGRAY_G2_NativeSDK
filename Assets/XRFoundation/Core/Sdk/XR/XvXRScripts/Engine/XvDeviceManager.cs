@@ -368,7 +368,7 @@ namespace Singray.Engine
             if (!file_info.Exists)
             {
                 sw = file_info.CreateText();//Create a UTF-8 text writer
-                MyDebugTool.Log("File created successfully！");
+                MyDebugTool.Log("File created successfully!");
                 sw.Write(str_info);
                 sw.Close();
                 sw.Dispose();//Dispose the file stream

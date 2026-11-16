@@ -62,3 +62,14 @@ development branch is `dev/4.2`.
 
 Native device input and physical hand interaction require G2 hardware validation;
 source comparison and Editor validation do not establish device behavior.
+
+## English-only SDK wording
+
+- SDK code comments, UI labels, diagnostics and documentation must be in English.
+- Audit serialized Unicode escapes and legacy encodings as well as literal text.
+- Preserve approved functional language data (keyboard dictionaries, font glyph
+  data, speech-model vocabulary and Unicode rules); document narrow, hash-bound
+  exemptions in `Docs/SDK-English-Language-Audit.md`. Do not remove SDK abilities
+  to satisfy a wording check.
+- Run `python Tools/Validation/check_sdk_english.py` before publishing wording
+  changes. Keep unrelated local edits and local-only modules out of publication.

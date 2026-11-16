@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "policy": "English comments, diagnostics, UI and documentation. Functional language data is explicitly retained by user approval; exemption hashes must match.",
+  "entries": [
+    {
+      "path": "Assets/XRFoundation/Core/Font/txt.txt",
+      "kind": "whole-file",
+      "sha256": "0c60c4cf44fa2659194db7127c754ded5dd5b0ac2fd2486f525b7f88de5eaa29",
+      "reason": "Font glyph repertoire input; characters are font data, not SDK instructions."
+    },
+    {
+      "path": "Assets/XRFoundation/Core/Foundation/MediaRecorder/NatCorder/Font/txt.txt",
+      "kind": "whole-file",
+      "sha256": "f09a4fe4fbfe56755598e6a580b15c068e902db783f39d4adf0dbc9999b8da86",
+      "reason": "Legacy font glyph repertoire input, preserved byte-for-byte."
+    },
+    {
+      "path": "Assets/XRFoundation/Core/Foundation/Keyboard/Resources/Files/pinyin.csv",
+      "kind": "whole-file",
+      "sha256": "94cb454411c5ccee255add9b85ad73fdd702af70e7f985a4d1442e977ab11492",
+      "reason": "Pinyin-to-character dictionary required by the existing multilingual keyboard."
+    },
+    {
+      "path": "Assets/XRFoundation/ThirdParty/TextMesh Pro/Resources/LineBreaking Leading Characters.txt",
+      "kind": "whole-file",
+      "sha256": "62d3f4d5f64aaf885692d2d13a8313f6918e6e4c5aeb3990a43f614652bfd89c",
+      "reason": "Third-party Unicode line-breaking rules, not UI wording."
+    },
+    {
+      "path": "Assets/XRFoundation/ThirdParty/TextMesh Pro/Resources/LineBreaking Following Characters.txt",
+      "kind": "whole-file",
+      "sha256": "3a73e5ffe2510756dd3c2e982fdc1218b4be82c6e21abde88070d6860e1bc8e6",
+      "reason": "Third-party Unicode line-breaking rules, not UI wording."
+    },
+    {
+      "path": "Assets/XRFoundation/Core/Font/fontMedical.asset",
+      "kind": "font-creation-sequence",
+      "sha256": "8b9a2580744696b28909698d6a3ed191df042ef6baf361065bd48f3d49f74afd",
+      "reason": "TextMeshPro generator glyph sequence; atlas, glyph/character tables and GUIDs must remain unchanged."
+    },
+    {
+      "path": "Assets/XRFoundation/Core/Foundation/MediaRecorder/NatCorder/Font/lt SDF.asset",
+      "kind": "font-creation-sequence",
+      "sha256": "cc9fb358bb5cb4c538867c7d5acdb2914faffb6dd3754947592a91f429c3d498",
+      "reason": "TextMeshPro generator glyph sequence, preserved with its font data."
+    },
+    {
+      "path": "Assets/XRFoundation/SampleScenes/SpeechVoice/Prefabs/XvSpeechVoiceManager.prefab",
+      "kind": "speech-word-fields",
+      "sha256": "1e5b9cf55114a3a0ef47ebc43d60e113bc9c91768ff95b40f146bdeffc8718c8",
+      "reason": "Command vocabulary for the existing Mandarin speech model; English UI hints remain separate."
+    },
+    {
+      "path": "Assets/XRFoundation/SampleScenes/SpeechVoice/Scenes/SpeechVoice.unity",
+      "kind": "speech-word-overrides",
+      "sha256": "d7f1b5960470e509cbf007c607c0020b425da89d649e4d1e1780c25a061a0c06",
+      "reason": "Existing Mandarin command bindings; disabled sample menu/build status is preserved."
+    },
+    {
+      "path": "Tools/Delivery/validate_delivery_review.py",
+      "kind": "unicode-range-pattern",
+      "sha256": "9c8c3c492485552348ee573f761d36a6dc28e6c16ff3b97e786048a2246f9eb2",
+      "reason": "An ASCII Unicode-range regex used to reject non-English documentation, not visible prose."
+    }
+  ],
+  "hashFormat": "sha256-with-crlf-normalized-to-lf"
+}

@@ -109,7 +109,7 @@ namespace Singray.Foundation.SampleScenes
                             FileInfo file_info = new FileInfo(mapContentInfos[i].mapPath);
                             if (!file_info.Exists || file_info.Length==0)
                             {
-                                MyDebugTool.LogError("delete：" + mapContentInfos[i].mapPath);
+                                MyDebugTool.LogError("delete:" + mapContentInfos[i].mapPath);
                                 mapContentInfos.RemoveAt(i);
                             }
                             else
@@ -279,7 +279,7 @@ namespace Singray.Foundation.SampleScenes
         private void onMapSimilarity(float similarity)
         {
 
-            similarityText.text = "similarity：" + similarity;
+            similarityText.text = "similarity:" + similarity;
 
 
         }

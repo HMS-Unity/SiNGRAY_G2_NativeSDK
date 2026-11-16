@@ -1059,7 +1059,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 1
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "Similarity\uFF1A"
+  m_Text: "Similarity:"
 --- !u!1 &3388289827135055069
 GameObject:
   m_ObjectHideFlags: 0
@@ -1784,7 +1784,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "Log\uFF1A"
+  m_Text: "Log:"
 --- !u!1 &7241995513087779332
 GameObject:
   m_ObjectHideFlags: 0

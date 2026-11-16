@@ -49,39 +49,39 @@ namespace Singray.Foundation
         public override void StartCapture()
         {
 
-            MyDebugTool.Log("Create RGB texture rgbResolution：" + cameraParameter.rgbResolution);
+            MyDebugTool.Log("Create RGB texture rgbResolution:" + cameraParameter.rgbResolution);
 
             switch (cameraParameter.rgbResolution)
             {
                 case RgbResolution.RGB_1920x1080:
                     API.xslam_set_rgb_resolution(0);
-                    MyDebugTool.Log("Create RGB texture set_rgb_resolution：0");
+                    MyDebugTool.Log("Create RGB texture set_rgb_resolution:0");
 
                     break;
                 case RgbResolution.RGB_1280x720:
                     API.xslam_set_rgb_resolution(1);
-                    MyDebugTool.Log("Create RGB texture set_rgb_resolution：1");
+                    MyDebugTool.Log("Create RGB texture set_rgb_resolution:1");
 
                     break;
                 case RgbResolution.RGB_640x480:
                     API.xslam_set_rgb_resolution(2);
-                    MyDebugTool.Log("Create RGB texture set_rgb_resolution：2");
+                    MyDebugTool.Log("Create RGB texture set_rgb_resolution:2");
 
                     break;
                 case RgbResolution.RGB_320x240:
                     API.xslam_set_rgb_resolution(3);
-                    MyDebugTool.Log("Create RGB texture set_rgb_resolution：3");
+                    MyDebugTool.Log("Create RGB texture set_rgb_resolution:3");
 
                     break;
                 case RgbResolution.RGB_2560x1920:
                     API.xslam_set_rgb_resolution(4);
-                    MyDebugTool.Log("Create RGB texture set_rgb_resolution：4");
+                    MyDebugTool.Log("Create RGB texture set_rgb_resolution:4");
 
 
                     break;
                 case RgbResolution.RGB_3840x2160:
                     API.xslam_set_rgb_resolution(5);
-                    MyDebugTool.Log("Create RGB texture set_rgb_resolution：5");
+                    MyDebugTool.Log("Create RGB texture set_rgb_resolution:5");
 
                     break;
                 default:

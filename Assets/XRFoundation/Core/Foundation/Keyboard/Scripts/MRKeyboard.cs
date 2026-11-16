@@ -194,7 +194,7 @@ namespace Singray.UI.Keyboard
 
         private void OnButtonClick(Button bt)
         {
-            MyDebugTool.Log("OnButtonClick：" + bt.name);
+            MyDebugTool.Log("OnButtonClick:" + bt.name);
            
 
             switch (bt.name)

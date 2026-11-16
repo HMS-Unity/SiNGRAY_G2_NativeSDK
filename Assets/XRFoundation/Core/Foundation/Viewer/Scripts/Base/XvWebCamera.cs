@@ -49,7 +49,7 @@ namespace Singray.Foundation
             }
             else
             {
-                MyDebugTool.Log("Detected number of cameras：" + webCamDevices.Length);
+                MyDebugTool.Log("Detected number of cameras:" + webCamDevices.Length);
             }
             webCamTexture = new WebCamTexture(webCamDevices[0].name, cameraParameter.width, cameraParameter.height);
             webCamTexture.Play();

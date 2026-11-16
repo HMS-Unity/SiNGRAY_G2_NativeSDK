@@ -159,7 +159,7 @@ string path = "sdcard/" + "pinyin.csv";
 
         }
 
-        MyDebugTool.Log("No Chinese characters found£º" + word);
+        MyDebugTool.Log("No Chinese characters found:" + word);
         return null;
 
     }
