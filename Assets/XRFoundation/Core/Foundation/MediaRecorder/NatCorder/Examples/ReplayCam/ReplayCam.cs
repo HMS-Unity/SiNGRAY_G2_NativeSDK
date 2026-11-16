@@ -36,10 +36,15 @@ namespace NatSuite.Examples {
 
         private bool isRecording;
         public bool IsRecording {
-        get { return isRecording; }
+        get { return isRecording || finishing; }
         }
 
 
+        private bool finishing;
+        private Task<string> finishTask;
+        private int sessionGeneration;
+        private bool microphoneStarted;
+        private Coroutine microphoneRoutine;
         private IMediaRecorder recorder;
         private AudioInput audioInput;
         private AudioSource microphoneSource;
@@ -160,54 +165,68 @@ namespace NatSuite.Examples {
         //public Text infoTxt;
         //public VideoManagerControl videoManageControl;
 
-        private IEnumerator Start () {
-            audioListener = FindObjectOfType<AudioListener>();
-
-            // Start microphone
+        private void EnsureAudioSource()
+        {
+            if (audioListener == null || !audioListener.isActiveAndEnabled)
+                audioListener = Array.Find(FindObjectsOfType<AudioListener>(), listener => listener.isActiveAndEnabled);
+            if (microphoneSource != null) return;
             microphoneSource = gameObject.AddComponent<AudioSource>();
-            microphoneSource.mute =
-            microphoneSource.loop = true;
-            microphoneSource.bypassEffects =
-            microphoneSource.bypassListenerEffects = false;
-            // The WaitUntil below only terminates once the microphone is actually capturing, so it
-            // has to stay inside this branch — with no Microphone.Start, GetPosition stays at 0 and
-            // the coroutine would hang here forever, never reaching Play().
-            if (recordMicrophone)
-            {
-                microphoneSource.clip = Microphone.Start(null, true, 10, AudioSettings.outputSampleRate);
-                yield return new WaitUntil(() => Microphone.GetPosition(null) > 0);
-            }
-            microphoneSource.Play();
+            microphoneSource.mute = microphoneSource.loop = true;
+            microphoneSource.bypassEffects = microphoneSource.bypassListenerEffects = false;
         }
 
-        private void OnDestroy () {
-            // Stop the encoder feed thread if we're torn down mid-recording, so it can't outlive
-            // this object and keep calling into a disposed recorder.
-            consumerRunning = false;
-            frameAvailableEvent?.Set();
-            if (consumerThread != null)
+        private void OnEnable()
+        {
+            if (recordMicrophone) microphoneRoutine = StartCoroutine(PrepareMicrophone());
+        }
+
+        private void Start() { EnsureAudioSource(); }
+
+        private IEnumerator PrepareMicrophone()
+        {
+            EnsureAudioSource();
+            if (!recordMicrophone) yield break;
+            microphoneSource.clip = Microphone.Start(null, true, 10, AudioSettings.outputSampleRate);
+            microphoneStarted = microphoneSource.clip != null;
+            float deadline = Time.realtimeSinceStartup + 5f;
+            while (microphoneStarted && Microphone.GetPosition(null) <= 0 && Time.realtimeSinceStartup < deadline) yield return null;
+            if (microphoneStarted && Microphone.GetPosition(null) > 0) microphoneSource.Play();
+            else Debug.LogWarning("[MEDIA-RECORDER] microphone did not become ready; video recording remains available.");
+        }
+
+        private void OnDisable()
+        {
+            StopRecording(null);
+            if (microphoneRoutine != null) StopCoroutine(microphoneRoutine);
+            microphoneRoutine = null;
+            if (microphoneStarted)
             {
-                consumerThread.Join(200);
-                consumerThread = null;
-            }
-            frameAvailableEvent?.Dispose();
-            frameAvailableEvent = null;
-            // Stop microphone
-            if (recordMicrophone)
-            {
-                microphoneSource.Stop();
+                microphoneStarted = false;
+                if (microphoneSource != null) microphoneSource.Stop();
                 Microphone.End(null);
             }
         }
 
-       
+        private void OnDestroy() { OnDisable(); }
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused) OnDisable();
+            else if (isActiveAndEnabled && recordMicrophone && microphoneRoutine == null)
+                microphoneRoutine = StartCoroutine(PrepareMicrophone());
+        }
+
         public void StartRecording()
         {
-            if (isRecording) {
+            if (isRecording || finishing || !isActiveAndEnabled) {
                 return;
             }
 
+            EnsureAudioSource();
+            finishTask = null;
+            int generation = ++sessionGeneration;
             isRecording = true;
+            try
+            {
 
             // Start recording
             var frameRate = 30;
@@ -215,18 +234,18 @@ namespace NatSuite.Examples {
             //var sampleRate = recordMicrophone ? AudioSettings.outputSampleRate : 0;
             //var channelCount = recordMicrophone ? (int)AudioSettings.speakerMode : 0;
             // MP4Recorder takes 0/0 to mean "no audio track", which skips audio muxing entirely.
-            var sampleRate = recordAudio ? AudioSettings.outputSampleRate : 0;
-            var channelCount = recordAudio ? (int)AudioSettings.speakerMode : 0;
+            var sampleRate = recordAudio && audioListener != null ? AudioSettings.outputSampleRate : 0;
+            var channelCount = recordAudio && audioListener != null ? (int)AudioSettings.speakerMode : 0;
             recordClock = new RealtimeClock();
 
             // Cap the capture resolution instead of recording at the raw camera resolution
             // (which can be 1920x1080+); this directly shrinks the per-frame Blit/readback/copy
             // cost. videoWidth/videoHeight themselves are left untouched for other readers.
-            recordWidth = videoWidth;
-            recordHeight = videoHeight;
+            recordWidth = Mathf.Max(2, videoWidth & ~1);
+            recordHeight = Mathf.Max(2, videoHeight & ~1);
             if (Mathf.Max(recordWidth, recordHeight) > maxRecordingDimension)
             {
-                float scale = maxRecordingDimension / (float)Mathf.Max(recordWidth, recordHeight);
+                float scale = Mathf.Max(2, maxRecordingDimension) / (float)Mathf.Max(recordWidth, recordHeight);
                 recordWidth = Mathf.Max(2, Mathf.RoundToInt(recordWidth * scale) & ~1);
                 recordHeight = Mathf.Max(2, Mathf.RoundToInt(recordHeight * scale) & ~1);
             }
@@ -254,10 +273,7 @@ namespace NatSuite.Examples {
 
             // Make sure the MR compositor is actually producing CameraRenderTexture frames;
             // capture reads that texture directly instead of forcing its own scene render.
-            if (MrVideoCaptureManager != null && !MrVideoCaptureManager.IsOn)
-            {
-                MrVideoCaptureManager.StartCapture();
-            }
+            if (MrVideoCaptureManager != null) MrVideoCaptureManager.AcquireCapture(this);
 
             convertedTexture = new RenderTexture(recordWidth, recordHeight, 0, RenderTextureFormat.ARGB32);
             int bufferSize = recordWidth * recordHeight * 4;
@@ -266,7 +282,7 @@ namespace NatSuite.Examples {
             readBuffer = new byte[bufferSize];
             // Cache the readback callback once per session instead of allocating a new closure
             // on every AsyncGPUReadback.Request call.
-            onReadbackComplete = OnReadbackComplete;
+            onReadbackComplete = request => OnReadbackComplete(request, generation);
             captureRoutine = StartCoroutine(CaptureFrames());
 
             // Start the encoder feed thread. It must be running before audio starts so both
@@ -276,14 +292,19 @@ namespace NatSuite.Examples {
             consumerThread.Start();
 
             //audioInput = recordMicrophone ? new AudioInput(recorder, clock, microphoneSource, true) : null;
-            audioInput = recordAudio ? new AudioInput(recorder, recordClock, audioListener) : null;
+            audioInput = recordAudio && audioListener != null ? new AudioInput(recorder, recordClock, audioListener) : null;
             // Unmute microphone
             microphoneSource.mute = audioInput == null;
 
 
 
-            MyDebugTool.Log("StartRecording");
-
+            Debug.Log($"[MEDIA-RECORDER] recording started size={recordWidth}x{recordHeight} audio={audioInput != null} generation={generation}");
+            }
+            catch (Exception error)
+            {
+                Debug.LogError("[MEDIA-RECORDER] start failed: " + error.Message);
+                StopRecording(null);
+            }
         }
 
         // Producer (main thread): keep the newest rendered frame available for the consumer.
@@ -397,12 +418,14 @@ namespace NatSuite.Examples {
             }
         }
 
-        private void OnReadbackComplete(AsyncGPUReadbackRequest request)
+        private void OnReadbackComplete(AsyncGPUReadbackRequest request, int generation)
         {
             // Decrement unconditionally (including on error) so a single failed readback can't
             // permanently occupy an in-flight slot.
+            if (generation != sessionGeneration) return;
             if (readbackInFlightCount > 0)
                 readbackInFlightCount--;
+            if (!isRecording) return;
             // Latency sample: how long this request actually took end-to-end, regardless of
             // whether it errored (an erroring request still occupied an in-flight slot). Matched
             // to its issuance timestamp by queue order (see field comment for why that's valid).
@@ -489,102 +512,97 @@ namespace NatSuite.Examples {
             }
         }
 
-        public async void StopRecording (UnityAction<string> callback) {
-
-            if (!isRecording)
-            {
-                return;
-            }
-            isRecording = false;
-           
-
-            // Mute microphone
-            microphoneSource.mute = true;
-
-            // Tear down every resource even if an earlier step throws, so a single failure (e.g.
-            // audioInput.Dispose()) can't leak the capture coroutine, the encoder feed thread, or
-            // the capture buffers/textures across repeated start/stop cycles.
+        public async void StopRecording(UnityAction<string> callback)
+        {
+            string result = null;
             try
             {
-                audioInput?.Dispose();
+                if (isRecording || finishing)
+                {
+                    if (finishTask == null)
+                    {
+                        finishing = true;
+                        Debug.Log($"[MEDIA-RECORDER] stop requested generation={sessionGeneration} readbacks={readbackInFlightCount}");
+                        finishTask = FinishRecording();
+                    }
+                    result = await finishTask;
+                }
             }
+            catch (Exception error) { Debug.LogError("[MEDIA-RECORDER] stop failed: " + error.Message); }
             finally
             {
+                try { callback?.Invoke(result); }
+                catch (Exception error) { Debug.LogException(error); }
+            }
+        }
+
+        private async Task<string> FinishRecording()
+        {
+            isRecording = false;
+            string directory = Application.platform == RuntimePlatform.Android
+                ? "/sdcard/DCIM/guest" : Path.Combine(Path.GetDirectoryName(Application.dataPath), "Screenshots");
+            string result = null;
+            var current = recorder;
+            Exception cleanupError = null;
+            try
+            {
+                if (microphoneSource != null) microphoneSource.mute = true;
+                try { audioInput?.Dispose(); } catch (Exception error) { cleanupError = error; }
                 audioInput = null;
-                if (captureRoutine != null)
-                {
-                    StopCoroutine(captureRoutine);
-                    captureRoutine = null;
-                }
-                // Stop the consumer thread and wait for it to finish committing BEFORE
-                // FinishWriting, so no CommitFrame races with the encoder being finalized.
+                if (captureRoutine != null) { StopCoroutine(captureRoutine); captureRoutine = null; }
                 consumerRunning = false;
                 frameAvailableEvent?.Set();
-                if (consumerThread != null)
+                var worker = consumerThread;
+                if (worker != null)
                 {
-                    consumerThread.Join(500);
-                    consumerThread = null;
+                    var joined = Task.Run(() => worker.Join());
+                    if (await Task.WhenAny(joined, Task.Delay(2000)) != joined)
+                        Debug.LogWarning("[MEDIA-RECORDER] still waiting for encoder worker; resources remain owned until it exits.");
+                    await joined;
                 }
-                frameAvailableEvent?.Dispose();
-                frameAvailableEvent = null;
-                if (convertedTexture != null)
+                consumerThread = null;
+                frameAvailableEvent?.Dispose(); frameAvailableEvent = null;
+                // GPU callbacks drain before their texture is destroyed; restart stays gated.
+                while (readbackInFlightCount > 0) await Task.Yield();
+                if (current != null)
                 {
-                    Destroy(convertedTexture);
-                    convertedTexture = null;
+                    string source = await current.FinishWriting();
+                    result = await Task.Run(() => SaveCompletedFile(source, directory));
                 }
-                if (readbackBuffer != null)
-                {
-                    Destroy(readbackBuffer);
-                    readbackBuffer = null;
-                }
-                writeBuffer = null;
-                sharedBuffer = null;
-                readBuffer = null;
+                if (cleanupError != null) Debug.LogWarning("[MEDIA-RECORDER] audio cleanup warning: " + cleanupError.Message);
+                Debug.Log("[MEDIA-RECORDER] recording finalized path=" + (result ?? "<none>"));
             }
-
-            var path = await recorder.FinishWriting();
-            // Playback recording
-            MyDebugTool.Log($"Saved recording to: {path}");
-           // var prefix = Application.platform == RuntimePlatform.IPhonePlayer ? "file://" : "";
-            //infoTxt.text = path;
-            // On mobile, play the recorded video after recording ends
-            //Handheld.PlayFullScreenMovie($"{prefix}{path}");
-
-
-#if PLATFORM_ANDROID && !UNITY_EDITOR
-            string dstDir = "/sdcard/DCIM/guest";
-            string path2 = dstDir + "/" + getDate() + ".mp4";
-            await Task.Run(() =>
+            catch (Exception error) { Debug.LogError("[MEDIA-RECORDER] finalize failed: " + error.Message); }
+            finally
             {
-                if (!Directory.Exists(dstDir))
-                {
-                    Directory.CreateDirectory(dstDir);
-                }
-                File.Copy(path, path2);
-            });
+                if (convertedTexture != null) { convertedTexture.Release(); Destroy(convertedTexture); convertedTexture = null; }
+                if (readbackBuffer != null) { Destroy(readbackBuffer); readbackBuffer = null; }
+                writeBuffer = sharedBuffer = readBuffer = null;
+                pendingReadbackRequestTicks.Clear();
+                recorder = null; recordClock = null; onReadbackComplete = null;
+                if (mrVideoCaptureManager != null) mrVideoCaptureManager.ReleaseCapture(this, true);
+                finishing = false;
+            }
+            return result;
+        }
 
-            callback?.Invoke(path2);
-#endif
-
-#if UNITY_EDITOR
-            string dirPath = Path.GetFileName(path);
-
-            string rootPath = Application.dataPath.Replace("Assets/", "");
-            string path_configData = rootPath + "/Screenshots/" + dirPath;
-
-            await Task.Run(() =>
+        private static string SaveCompletedFile(string source, string directory)
+        {
+            if (string.IsNullOrEmpty(source) || !File.Exists(source) || new FileInfo(source).Length == 0)
+                throw new IOException("Encoder did not produce a nonempty recording.");
+            string destination = Path.Combine(directory, DateTime.Now.ToString("yyyyMMdd_HHmmss_fff") + "_" + Guid.NewGuid().ToString("N").Substring(0,8) + ".mp4");
+            try
             {
-                if (!Directory.Exists(rootPath + "/Screenshots"))
-                {
-                    Directory.CreateDirectory(rootPath + "/Screenshots");
-                }
-                File.Copy(path, path_configData);
-            });
-
-            Debug.LogError(path_configData);
-            callback?.Invoke(path_configData);
-
-#endif
+                Directory.CreateDirectory(directory);
+                File.Copy(source, destination);
+                if (new FileInfo(destination).Length == 0) throw new IOException("Saved recording is empty.");
+                return destination;
+            }
+            catch (Exception error) when (error is IOException || error is UnauthorizedAccessException)
+            {
+                Debug.LogWarning("[MEDIA-RECORDER] shared-folder export failed; recording retained at " + source + ": " + error.Message);
+                return source;
+            }
         }
 
         public void RemoveRecording()
