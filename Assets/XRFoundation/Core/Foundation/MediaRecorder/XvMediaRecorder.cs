@@ -1,285 +1,132 @@
 using System.Collections;
 using UnityEngine;
 
-
 namespace Singray.Foundation
 {
-    /// <summary>
-    /// Depends on XvMediaRecorderManager
-    /// Provides menu controls for local video recording and screenshots
-    /// </summary>
+    /// <summary>Existing hand-menu controls for recording, screenshots, camera preview and RTSP.</summary>
     public class XvMediaRecorder : MonoBehaviour
     {
-        [SerializeField]
-        private XvMediaRecorderManager xvMediaRecorderManager;
-
-        public XvMediaRecorderManager XvMediaRecorderManager { 
-        get {
-                if (xvMediaRecorderManager == null)
-                {
-                    xvMediaRecorderManager = FindFirstObjectByType<XvMediaRecorderManager>();
-                    if (xvMediaRecorderManager == null)
-                    {
-
-                        GameObject newObj = new GameObject("XvMediaRecorderManager");
-                        xvMediaRecorderManager = newObj.AddComponent<XvMediaRecorderManager>();
-
-                    }
-                }
-                return xvMediaRecorderManager;
-            }
-        }
-
-
-        [SerializeField]
-        private XvCameraManager xvCameraManager;
-
-        public XvCameraManager XvCameraManager
+        [SerializeField] private XvMediaRecorderManager xvMediaRecorderManager;
+        [SerializeField] private XvCameraManager xvCameraManager;
+        [SerializeField] private XvRTSPStreamerManager xvRTSPStreamerManager;
+        public XvMediaRecorderManager XvMediaRecorderManager => Resolve(ref xvMediaRecorderManager);
+        public XvCameraManager XvCameraManager => Resolve(ref xvCameraManager);
+        public XvRTSPStreamerManager XvRTSPStreamerManager => Resolve(ref xvRTSPStreamerManager);
+        private T Resolve<T>(ref T value) where T : Component
         {
-            get
-            {
-                if (xvCameraManager == null)
-                {
-                    xvCameraManager = FindFirstObjectByType<XvCameraManager>();
-                    if (xvCameraManager == null)
-                    {
-                        GameObject newObj = new GameObject("XvCameraManager");
-                        xvCameraManager = newObj.AddComponent<XvCameraManager>();
-                    }
-                }
-                return xvCameraManager;
-            }
+            if (value == null) value = FindObjectOfType<T>(true);
+            if (value == null) value = new GameObject(typeof(T).Name).AddComponent<T>();
+            return value;
         }
-
-        [SerializeField]
-        private XvRTSPStreamerManager xvRTSPStreamerManager;
-
-        public XvRTSPStreamerManager XvRTSPStreamerManager
-        {
-            get
-            {
-                if (xvRTSPStreamerManager == null)
-                {
-                    xvRTSPStreamerManager = FindFirstObjectByType<XvRTSPStreamerManager>();
-                    if (xvRTSPStreamerManager == null)
-                    {
-
-                        GameObject newObj = new GameObject("XvRTSPStreamerManager");
-                        xvRTSPStreamerManager = newObj.AddComponent<XvRTSPStreamerManager>();
-
-                    }
-                }
-                return xvRTSPStreamerManager;
-            }
-        }
-
-        //[SerializeField]
         private XvMedioRecordTips tips;
-
-        private TextMesh RtspTips;
-        private TextMesh VideoRecordTips;
-        private TextMesh ScreenshotTips;
-        private TextMesh cameraTips;
-
-
-        private TextMesh RtspStreamingText;
-        private TextMesh VideoRecordingText;
-        private TextMesh cameraText;
-
+        private TextMesh RtspTips, VideoRecordTips, ScreenshotTips, cameraTips;
+        private TextMesh RtspStreamingText, VideoRecordingText, cameraText;
+        private bool isScreenshot, cameraRequested, streamingRequested;
+        private Coroutine screenshotRoutine;
+        private int generation;
+        private const string Buttons = "HandMenu/MenuContent/ButtonCollection/";
+        private TextMesh Label(string path) => transform.Find(Buttons + path)?.GetComponent<TextMesh>();
         private void Awake()
         {
-            RtspTips = transform.Find("HandMenu/MenuContent/ButtonCollection/RtspStreaming/IconAndText/RtspTips").GetComponent<TextMesh>();
-            VideoRecordTips = transform.Find("HandMenu/MenuContent/ButtonCollection/VideoRecording/IconAndText/VideoRecordTips").GetComponent<TextMesh>();
-            ScreenshotTips = transform.Find("HandMenu/MenuContent/ButtonCollection/SaveScreenshot/IconAndText/ScreenshotTips").GetComponent<TextMesh>();
-            cameraTips = transform.Find("HandMenu/MenuContent/ButtonCollection/Camera/IconAndText/CameraTips").GetComponent<TextMesh>();
-            RtspStreamingText = transform.Find("HandMenu/MenuContent/ButtonCollection/RtspStreaming/IconAndText/RtspStreamingText").GetComponent<TextMesh>();
-            VideoRecordingText = transform.Find("HandMenu/MenuContent/ButtonCollection/VideoRecording/IconAndText/VideoRecordingText").GetComponent<TextMesh>();
-            cameraText = transform.Find("HandMenu/MenuContent/ButtonCollection/Camera/IconAndText/TextMeshPro").GetComponent<TextMesh>();
-
-            tips = transform.Find("HandMenu/MenuContent/XvMedioRecordTips").GetComponent<XvMedioRecordTips>();
+            RtspTips = Label("RtspStreaming/IconAndText/RtspTips");
+            VideoRecordTips = Label("VideoRecording/IconAndText/VideoRecordTips");
+            ScreenshotTips = Label("SaveScreenshot/IconAndText/ScreenshotTips");
+            cameraTips = Label("Camera/IconAndText/CameraTips");
+            RtspStreamingText = Label("RtspStreaming/IconAndText/RtspStreamingText");
+            VideoRecordingText = Label("VideoRecording/IconAndText/VideoRecordingText");
+            cameraText = Label("Camera/IconAndText/TextMeshPro");
+            tips = transform.Find("HandMenu/MenuContent/XvMedioRecordTips")?.GetComponent<XvMedioRecordTips>();
             foreach (var button in GetComponentsInChildren<Microsoft.MixedReality.Toolkit.UI.Interactable>(true))
                 Singray.UI.MrtkClickGate.Install(button);
         }
-
-
-        private void OnEnable()
-        {
-
-            ///Enable MR video capture before recording
-            //XvMediaRecorderManager.StartCapture();
-           
-        }
+        private static void Show(TextMesh label, bool visible) { if (label != null) label.gameObject.SetActive(visible); }
+        private static void Text(TextMesh label, string text) { if (label != null) label.text = text; }
         private void Update()
         {
-            if (Input.GetKeyDown(KeyCode.A)) {
-                SaveScreenshot();
-            }
-
-
-            if (Time.frameCount%5==0) {
-                if (XvCameraManager.IsOn(XvCameraStreamType.ARCameraStream))
-                {
-                    cameraText.text = "Stop Camera";
-                }
-                else
-                {
-                    cameraText.text = "Start Camera";
-                }
-                if (XvRTSPStreamerManager.IsStreeaming)
-                {
-                    RtspStreamingText.text = "Stop Streaming";
-                }
-                else
-                {
-                    RtspStreamingText.text = "Start Streaming";
-                }
-
-                if (XvMediaRecorderManager.IsVideoRecording())
-                {
-                    VideoRecordingText.text = "Stop Recording";
-                }
-                else
-                {
-                    VideoRecordingText.text = "Start Recording";
-                }
-
-                if (XvMediaRecorderManager.IsTakingScreenshots() || isScreenshot)
-                {
-                    //MyDebugTool.LogError("A photo capture is already in progress...");
-
-                    return;
-                }
-
-                ScreenshotTips.gameObject.SetActive(XvMediaRecorderManager.IsTakingScreenshots() || isScreenshot);
-                RtspTips.gameObject.SetActive(XvRTSPStreamerManager.IsStreeaming);
-                cameraTips.gameObject.SetActive(XvCameraManager.IsOn(XvCameraStreamType.ARCameraStream));
-                VideoRecordTips.gameObject.SetActive(XvMediaRecorderManager.IsVideoRecording());
-            }
-            
-
+            if (Input.GetKeyDown(KeyCode.A)) SaveScreenshot();
+            if (Time.frameCount % 5 != 0) return;
+            bool streaming = xvRTSPStreamerManager != null && xvRTSPStreamerManager.IsStreeaming;
+            bool recording = xvMediaRecorderManager != null && xvMediaRecorderManager.IsVideoRecording();
+            Show(cameraTips, cameraRequested); Show(RtspTips, streaming); Show(VideoRecordTips, recording);
+            Show(ScreenshotTips, isScreenshot || (xvMediaRecorderManager != null && xvMediaRecorderManager.IsTakingScreenshots()));
+            Text(cameraText, cameraRequested ? "Stop Camera" : "Start Camera");
+            Text(RtspStreamingText, streaming ? "Stop Streaming" : "Start Streaming");
+            Text(VideoRecordingText, recording ? "Stop Recording" : "Start Recording");
         }
-
-
-        private void OnDisable()
+        private void OnDisable() { ShutdownSample(); }
+        private void OnApplicationPause(bool paused) { if (paused) ShutdownSample(); }
+        public void ShutdownSample()
         {
-            XvMediaRecorderManager.StopCapture(false);
+            generation++;
+            if (screenshotRoutine != null) StopCoroutine(screenshotRoutine);
+            screenshotRoutine = null; isScreenshot = false;
+            Show(ScreenshotTips, false);
+            if (tips != null) tips.HideTips();
+            if (streamingRequested && xvRTSPStreamerManager != null) xvRTSPStreamerManager.StopRtspStreaming();
+            streamingRequested = false;
+            if (cameraRequested) Singray.Foundation.XvCameraManager.ReleaseCapture(XvCameraStreamType.ARCameraStream, this);
+            cameraRequested = false;
+            // Teardown must not instantiate services while the scene is being destroyed.
+            if (xvMediaRecorderManager != null) xvMediaRecorderManager.StopCapture(true);
         }
-
-        public void ARCameraStreaming() {
-            if (XvCameraManager.IsOn(XvCameraStreamType.ARCameraStream))
+        public void ARCameraStreaming()
+        {
+            if (!isActiveAndEnabled) return;
+            if (cameraRequested)
             {
-                cameraTips.gameObject.SetActive(false);
-                XvCameraManager.StopCapture(XvCameraStreamType.ARCameraStream);
-                cameraText.text = "Start Camera";
+                cameraRequested = false;
+                Singray.Foundation.XvCameraManager.ReleaseCapture(XvCameraStreamType.ARCameraStream, this);
             }
-            else {
-                cameraTips.gameObject.SetActive(true);
-                cameraText.text = "Stop Camera";
-
-                XvCameraManager.StartCapture(XvCameraStreamType.ARCameraStream);
-            }
+            else { XvCameraManager.AcquireCapture(XvCameraStreamType.ARCameraStream, this); cameraRequested = true; }
+            Show(cameraTips, cameraRequested);
+            Text(cameraText, cameraRequested ? "Stop Camera" : "Start Camera");
         }
-        public void  RtspStreaming() {
-
-            if (XvRTSPStreamerManager.IsStreeaming)
-            {
-                RtspTips.gameObject.SetActive(false);
-                XvRTSPStreamerManager.StopRtspStreaming();
-                RtspStreamingText.text = "Start Streaming";
-            }
-            else {
-                RtspTips.gameObject.SetActive(true);
-                XvRTSPStreamerManager.StartRtspStreaming();
-                RtspStreamingText.text = "Stop Streaming";
-            }
-            
+        public void RtspStreaming()
+        {
+            if (!isActiveAndEnabled) return;
+            var manager = XvRTSPStreamerManager;
+            if (manager.IsStreeaming) { manager.StopRtspStreaming(); streamingRequested = false; }
+            else { manager.StartRtspStreaming(); streamingRequested = manager.IsStreeaming; }
+            Show(RtspTips, manager.IsStreeaming);
+            Text(RtspStreamingText, manager.IsStreeaming ? "Stop Streaming" : "Start Streaming");
         }
-       
-      
-
-        /// <summary>
-        /// Start local video recording
-        /// </summary>
         public void VideoRecording()
         {
-            if (xvMediaRecorderManager.IsVideoRecording())
-            {
-                VideoRecordTips.gameObject.SetActive(false);
-
-                xvMediaRecorderManager.StopRecording((filePath) =>
+            if (!isActiveAndEnabled) return;
+            var manager = XvMediaRecorderManager;
+            int request = generation;
+            if (manager.IsVideoRecording())
+                manager.StopRecording(path =>
                 {
-                    tips.ShowTips("Saved to: " + filePath, 2);
-                   
+                    if (this == null || !isActiveAndEnabled || generation != request) return;
+                    if (tips != null) tips.ShowTips(string.IsNullOrEmpty(path) ? "Recording failed or canceled" : "Saved to: " + path, 2f);
                 });
-
-                VideoRecordingText.text = "Start Recording";
-            }
-            else {
-                
-                VideoRecordTips.gameObject.SetActive(true);
-                XvMediaRecorderManager.StartRecording();
-                VideoRecordingText.text = "Stop Recording";
-            }
-
-
+            else manager.StartRecording();
+            Show(VideoRecordTips, manager.IsVideoRecording());
+            Text(VideoRecordingText, manager.IsVideoRecording() ? "Stop Recording" : "Start Recording");
         }
-        //private IEnumerator RelayRecording()
-        //{
-
-        //    tips.ShowTips("Preparing to record");
-
-        //    yield return new WaitForSeconds(1);
-
-        //    for (int i = 3; i >= 0; i--)
-        //    {
-        //        tips.ShowTips(i.ToString());
-        //        yield return new WaitForSeconds(0.5f);
-        //    }
-
-
-        //    tips.ShowTips("Recording",1);
-        // XvMediaRecorderManager.StartRecording();
-
-
-        //}
-
-        private bool isScreenshot;
-        /// <summary>
-        /// Save screenshot
-        /// </summary>
         public void SaveScreenshot()
         {
-          
-            if (XvMediaRecorderManager.IsTakingScreenshots()||isScreenshot)
-            {
-                MyDebugTool.LogError("A photo capture is already in progress...");
-               
-                return;
-            }
-            isScreenshot = true;
-            ScreenshotTips.gameObject.SetActive(true);
-         
-            StartCoroutine(RelayScreenshot());
+            if (!isActiveAndEnabled || isScreenshot || XvMediaRecorderManager.IsTakingScreenshots()) return;
+            isScreenshot = true; Show(ScreenshotTips, true);
+            screenshotRoutine = StartCoroutine(RelayScreenshot(generation));
         }
-
-       
-        private IEnumerator RelayScreenshot()
+        private IEnumerator RelayScreenshot(int request)
         {
-
             yield return new WaitForSeconds(1);
-
             for (int i = 3; i >= 0; i--)
             {
-                tips.ShowTips(i.ToString(),200);
+                if (tips != null) tips.ShowTips(i.ToString(), 200);
                 yield return new WaitForSeconds(1f);
             }
-            tips.HideTips();
-            XvMediaRecorderManager.SaveScreenshot((filePath) => {
-                tips.ShowTips(string.IsNullOrEmpty(filePath) ? "Photo capture failed or canceled" : "Saved to: " + filePath,1);
-                ScreenshotTips.gameObject.SetActive(false);
-                isScreenshot = false;
+            screenshotRoutine = null;
+            if (tips != null) tips.HideTips();
+            XvMediaRecorderManager.SaveScreenshot(path =>
+            {
+                if (this == null || !isActiveAndEnabled || generation != request) return;
+                if (tips != null) tips.ShowTips(string.IsNullOrEmpty(path) ? "Photo capture failed or canceled" : "Saved to: " + path, 1f);
+                Show(ScreenshotTips, false); isScreenshot = false;
             });
         }
-
     }
 }

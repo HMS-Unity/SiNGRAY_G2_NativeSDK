@@ -40,7 +40,14 @@ namespace NatSuite.Recorders.Inputs {
         /// Stop recorder input and release resources.
         /// </summary>
         [Doc(@"AudioInputDispose")]
-        public void Dispose () => AudioInputAttachment.Destroy(attachment);
+        public void Dispose () {
+            lock (sampleLock) {
+                if (disposed) return;
+                disposed = true;
+                attachment.sampleBufferDelegate = null;
+            }
+            AudioInputAttachment.Destroy(attachment);
+        }
         #endregion
 
 
@@ -50,6 +57,8 @@ namespace NatSuite.Recorders.Inputs {
         private readonly IClock clock;
         private readonly AudioInputAttachment attachment;
         private readonly bool mute;
+        private readonly object sampleLock = new object();
+        private bool disposed;
 
         private AudioInput (IMediaRecorder recorder, IClock clock, GameObject gameObject, bool mute = false) {
             this.recorder = recorder;
@@ -60,10 +69,17 @@ namespace NatSuite.Recorders.Inputs {
         }
 
         private void OnSampleBuffer (float[] data) {
-            AndroidJNI.AttachCurrentThread();
-            recorder.CommitSamples(data, clock.timestamp);
-            if (mute)
-                Array.Clear(data, 0, data.Length);
+            lock (sampleLock) {
+                if (disposed) return;
+#if UNITY_ANDROID && !UNITY_EDITOR
+                // This callback borrows Unity's FMOD thread. Ensure JNI is available,
+                // but leave its attachment lifetime to the engine. Detaching inside
+                // OnAudioFilterRead can abort ART while a Java/native frame is active.
+                AndroidJNI.AttachCurrentThread();
+#endif
+                recorder.CommitSamples(data, clock.timestamp);
+                if (mute) Array.Clear(data, 0, data.Length);
+            }
         }
 
         private class AudioInputAttachment : MonoBehaviour {

@@ -19,6 +19,9 @@ namespace Singray.Foundation
         private Coroutine screenshotRoutine;
         private Coroutine recordingRoutine;
         private UnityAction<string> pendingScreenshotCallback;
+        private readonly object recordingOwner = new object();
+        private readonly object screenshotOwner = new object();
+        private bool stopping;
 
         [SerializeField]
         private XvMRVideoCaptureManager xvMRVideoCaptureManager;
@@ -28,7 +31,7 @@ namespace Singray.Foundation
 
                 if (xvMRVideoCaptureManager == null)
                 {
-                    xvMRVideoCaptureManager = FindObjectOfType<XvMRVideoCaptureManager>();
+                    xvMRVideoCaptureManager = FindObjectOfType<XvMRVideoCaptureManager>(true);
                 }
 
                 if (xvMRVideoCaptureManager == null)
@@ -68,6 +71,7 @@ namespace Singray.Foundation
         /// Start capturing the mixed-reality video stream.
         /// </summary>
         public void StartCapture() {
+            if (stopping || !isActiveAndEnabled) return;
             XvMRVideoCaptureManager.AcquireCapture(this);
         }
         /// <summary>
@@ -77,7 +81,14 @@ namespace Singray.Foundation
         /// <param name="closeCamera">True closes the camera; false keeps it open</param>
         public void StopCapture(bool closeCamera=false)
         {
-            try { CancelPendingScreenshot(); }
+            if (stopping) return;
+            stopping = true;
+            try
+            {
+                if (!closeCamera && xvMRVideoCaptureManager != null && xvMRVideoCaptureManager.IsOn)
+                    xvMRVideoCaptureManager.CameraManager.StartCapture(XvCameraStreamType.ARCameraStream);
+                CancelPendingScreenshot();
+            }
             finally
             {
                 try
@@ -86,7 +97,19 @@ namespace Singray.Foundation
                     if (jpg != null) jpg.CancelScreenshot();
                     if (replayCam != null && replayCam.IsRecording) replayCam.StopRecording(null);
                 }
-                finally { if (xvMRVideoCaptureManager != null) xvMRVideoCaptureManager.ReleaseCapture(this, closeCamera); }
+                finally
+                {
+                    try
+                    {
+                        if (xvMRVideoCaptureManager != null)
+                        {
+                            xvMRVideoCaptureManager.ReleaseCapture(recordingOwner, true);
+                            xvMRVideoCaptureManager.ReleaseCapture(screenshotOwner, true);
+                            xvMRVideoCaptureManager.ReleaseCapture(this, closeCamera);
+                        }
+                    }
+                    finally { stopping = false; }
+                }
             }
         }
 
@@ -96,10 +119,18 @@ namespace Singray.Foundation
 
         public void StartRecording()
         {
-            if (!isActiveAndEnabled || IsVideoRecording()) return;
-            StartCapture();
-            if (IsCameraFrameReady()) BeginRecording();
-            else recordingRoutine = StartCoroutine(RecordWhenReady(Time.realtimeSinceStartup + 10f));
+            if (stopping || !isActiveAndEnabled || IsVideoRecording()) return;
+            try
+            {
+                XvMRVideoCaptureManager.AcquireCapture(recordingOwner);
+                if (IsCameraFrameReady()) BeginRecording();
+                else recordingRoutine = StartCoroutine(RecordWhenReady(Time.realtimeSinceStartup + 10f));
+            }
+            catch (System.Exception error)
+            {
+                if (xvMRVideoCaptureManager != null) xvMRVideoCaptureManager.ReleaseCapture(recordingOwner, true);
+                Debug.LogError("[MEDIA-RECORDER] recording request failed: " + error.Message);
+            }
         }
 
         private IEnumerator RecordWhenReady(float deadline)
@@ -110,6 +141,7 @@ namespace Singray.Foundation
                 if (Time.realtimeSinceStartup >= deadline)
                 {
                     recordingRoutine = null;
+                    if (xvMRVideoCaptureManager != null) xvMRVideoCaptureManager.ReleaseCapture(recordingOwner, true);
                     Debug.LogWarning("[MR-RECORDER] recording canceled: no real frame within 10 seconds");
                     yield break;
                 }
@@ -120,16 +152,21 @@ namespace Singray.Foundation
         }
         private void BeginRecording()
         {
-            var output = XvMRVideoCaptureManager.CameraRenderTexture;
-            replayCam.videoWidth = output.width;
-            replayCam.videoHeight = output.height;
-            replayCam.cam = XvMRVideoCaptureManager.BgCamera;
-            replayCam.StartRecording();
+            try
+            {
+                var output = XvMRVideoCaptureManager.CameraRenderTexture;
+                replayCam.videoWidth = output.width;
+                replayCam.videoHeight = output.height;
+                replayCam.cam = XvMRVideoCaptureManager.BgCamera;
+                replayCam.StartRecording();
+            }
+            finally { if (xvMRVideoCaptureManager != null) xvMRVideoCaptureManager.ReleaseCapture(recordingOwner, true); }
         }
         private void CancelPendingRecording()
         {
             if (recordingRoutine == null) return;
             StopCoroutine(recordingRoutine); recordingRoutine = null;
+            if (xvMRVideoCaptureManager != null) xvMRVideoCaptureManager.ReleaseCapture(recordingOwner, true);
         }
 
         /// <summary>
@@ -165,19 +202,32 @@ namespace Singray.Foundation
             if (IsTakingScreenshots())
             {
                 Debug.LogWarning("Screenshot capture is already in progress.");
+                callback?.Invoke(null);
                 return;
             }
-            if (!isActiveAndEnabled)
+            if (stopping || !isActiveAndEnabled)
             {
                 callback?.Invoke(null);
                 return;
             }
             var capture = XvMRVideoCaptureManager;
             ulong previousFrame = capture.FrameSequence;
-            StartCapture();
-            pendingScreenshotCallback = callback;
-            screenshotRoutine = StartCoroutine(CaptureScreenshotWhenReady(capture, previousFrame,
-                Time.realtimeSinceStartup + 10f));
+            pendingScreenshotCallback = path =>
+            {
+                if (capture != null) capture.ReleaseCapture(screenshotOwner, true);
+                callback?.Invoke(path);
+            };
+            try
+            {
+                capture.AcquireCapture(screenshotOwner);
+                screenshotRoutine = StartCoroutine(CaptureScreenshotWhenReady(capture, previousFrame,
+                    Time.realtimeSinceStartup + 10f));
+            }
+            catch (System.Exception error)
+            {
+                Debug.LogError("[MEDIA-RECORDER] screenshot request failed: " + error.Message);
+                CompletePendingScreenshot(null);
+            }
         }
 
         private IEnumerator CaptureScreenshotWhenReady(XvMRVideoCaptureManager capture, ulong previousFrame, float deadline)
@@ -231,6 +281,7 @@ namespace Singray.Foundation
         }
 
         private void OnDisable() => StopCapture(true);
+        private void OnApplicationPause(bool paused) { if (paused) StopCapture(true); }
 
         public bool IsTakingScreenshots() {
             return screenshotRoutine != null || (jpg != null && jpg.IsRecording);
