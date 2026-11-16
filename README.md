@@ -64,3 +64,10 @@ The sample display name is **singray SDK**. CameraDemo, RGBD, point clouds, MR c
 Diagnostic APKs are built from this same Unity project with one standalone sample scene selected per build. The SDK Samples Hub remains a separate centralized entry scene using module prefabs; these tests did not merge all samples into one scene.
 
 See [change notes](Docs/SDK-Changes-20261102.txt) and [customer delivery plan](Docs/SDK-Customer-Delivery-Plan.txt) for scope, historical checks, user feedback and known limitations. User testing found no obvious issues in the exercised samples; this does not establish native reset root-cause resolution, full long-run coverage or clean customer-project acceptance.
+
+## Optional RGB alignment diagnostic
+
+[RGB AprilTag Alignment Demo](Assets/XRFoundation/SampleScenes/RgbTagAlignment/README.md):
+independent RGB-only 36h11/ID0 detection and 80 mm PnP, timestamped world Plane,
+lock comparison and left-palm MR recording. Includes technical route, reproduction
+steps and evidence limits; original sample scenes remain unchanged.

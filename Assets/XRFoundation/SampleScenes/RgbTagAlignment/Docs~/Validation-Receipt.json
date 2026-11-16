@@ -1,0 +1,27 @@
+{
+  "baseSdkCommit": "20c49d80c404de347bf5faf9a481cf13e3cd8a15",
+  "branch": "dev/4.2",
+  "unity": "2022.3.62f3",
+  "nativeSyntheticCases": 15,
+  "freshCheckoutEditorAssertions": 233,
+  "freshCheckoutControlledRecordingAssertions": 30,
+  "androidPlayerScripts": "PASS",
+  "nativeSyntheticValidation": "PASS",
+  "savedAssetReferenceGuidsResolved": 32,
+  "missingSavedAssetReferenceGuids": 0,
+  "graphics": "Headless Camera.Render skipped explicitly; previous main-workspace synthetic renders reviewed",
+  "hardwareAccuracyAccepted": false,
+  "confirmedLockedWalkAroundVideo": false,
+  "rawDeviceDataPublished": false,
+  "newApkBuild": "Not performed for publication; source compile and controlled checks only",
+  "historicalApkVersion": "1.2 / code 3, from prior working project, not byte-identical publication inputs",
+  "vendorNativeArchives": "Existing customer SDK base archives retained unchanged",
+  "originalValidatedDemoCommit": "d03a5bc96c941508e82ce1218bacbced421c1699",
+  "mergeTargetBefore": "60eb9a82710adb3bad49d7fde8705593a84c08de",
+  "postMergeValidation": {
+    "editorAssertions": 233,
+    "controlledRecordingAssertions": 30,
+    "androidPlayerScripts": "PASS",
+    "additionalSharedSdkChanges": 0
+  }
+}
