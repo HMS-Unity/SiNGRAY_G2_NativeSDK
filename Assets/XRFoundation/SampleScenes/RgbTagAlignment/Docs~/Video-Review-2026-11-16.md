@@ -1,68 +1,93 @@
-# 录屏分析：2026-11-16
+# Recording Review: 2026-11-16
 
-分析对象：`20261116_182251_669_a5ed5476.mp4`，SHA256
-`1205bbd3cf2af969826d8634aed4c1e0f9e096eac7a56090549e8e1a98569801`。
-原片留在本地；本报告只公开技术观察，不上传工作现场画面、原视频和设备原始数据。
-全部时间为视频相对时间；文件命名时间和容器创建时间不用于估计传感器延迟。
+Reviewed file: `20261116_182251_669_a5ed5476.mp4`, SHA256
+`1205bbd3cf2af969826d8634aed4c1e0f9e096eac7a56090549e8e1a98569801`.
+The original video remains local. This report publishes technical observations,
+not workplace imagery, raw video, or per-device captures/calibration.
+All times are relative to the video. Filename and container creation times are
+not used to estimate sensor latency.
 
-## 结论
+## Conclusion
 
-这段视频能证明识别、图像角点叠加、世界 Plane 显示和 MR 录制的基本链路运行。
-当前证据无法证明完成了 Lock 后固定目标的走动测试，也无法判断是某一台眼镜标定异常。
-能看清物理 Tag 的片段中，虚拟纹理与实物大体重叠，仍能看到码元边缘分离；
-不能把其量化为绝对三维毫米误差，或把橙框外缘当作检测角。
+The clip demonstrates the basic independent detection, corner overlay, world
+Plane display, and MR recording pipeline. It does not establish a completed
+fixed-target walk-around test after Lock, or a calibration fault on one device.
+Where the physical Tag is visible, virtual and physical patterns overlap broadly
+but some cell edges separate. This cannot be converted into absolute 3D error in
+millimeters, and the thick orange outline's outer edge is not a detected corner.
 
-## 方法和可复核证据
+## Method and observable evidence
 
-- FFmpeg 完整解码成功：1280×720，32.08 秒，2830 个 H.264 视频帧，无音轨。
-  容器平均约 88.23 fps；不等于新的 RGB 帧或 8 Hz 检测帧率。
-- 按 0.5 秒采样检查状态与运动，另外放大 5、10、14.5、15、17、17.5、19.5、20.5、21、25 秒等关键画面。
-  这不是对被遮挡文字的逐帧 OCR 证明，不排除极短或不可读状态。
-- 可读状态为 `LIVE | Tracking` / `LIVE | ID 0 not visible`，并出现
-  `Lock a fresh valid Plane, then walk around`。没有识别出明确的 `LOCKED` 和 `Live vs lock` 段。
-- 橙色世界 Plane 在 LIVE 同样绘制；不能由橙框出现推断已锁定。
-- 目标纸板前半段拿在手里；约 18–21 秒附近看起来被放到电脑前，随后又拿起。
-  没有可确认的「固定纸板 + 已锁定 + 眼镜走动 + 返回起点」完整序列。
+- FFmpeg decoded all 2830 H.264 frames: 1280x720, 32.08 seconds, no audio track.
+  Container average is about 88.23 fps, not fresh RGB or the 8 Hz detection rate.
+- States/motion were sampled every 0.5 seconds. Enlarged key images include 5,
+  10, 14.5, 15, 17, 17.5, 19.5, 20.5, 21, and 25 seconds. This is not exhaustive
+  OCR proof of obscured text; very brief or unreadable states cannot be excluded.
+- Readable states are `LIVE | Tracking` or `LIVE | ID 0 not visible`, with
+  `Lock a fresh valid Plane, then walk around`. No clear `LOCKED` and
+  `Live vs lock` segment was identified.
+- The orange world-Plane outline also appears in LIVE. Its presence does not
+  prove a successful lock.
+- The board is handheld for much of the clip, appears to rest near the laptop
+  around 18-21 seconds, and is lifted again. There is no confirmed complete
+  sequence of stationary board, successful lock, glasses movement, and return.
 
-| 时间 | 观察 | 可以说明什么 |
+| Time | Observation | Supported interpretation |
 | --- | --- | --- |
-| 0–约 4.5 s | 启动识别，Tag 未稳定进入画面 | 不能作为空间误差样本 |
-| 约 5–15 s | LIVE 跟随手持 Tag；绿色/洋红轮廓接近；主面板经常挡住真实 Tag | 检测/PnP 同帧拟合可用；空间与时序误差仍混合 |
-| 约 17–17.5 s | 物理纸板和虚拟纹理同时清晰；内部码元大体重叠，有局部边缘分离 | 有可见叠加差异；不足以标定/测毫米 |
-| 约 18–21 s | Tag 在下方，橙框间歇出现/消失；面板常显示无有效位姿 | 更符合未锁定情况下的检测可见性变化，不能称为锁定参考漂移 |
-| 约 24–27 s | 再次手持，LIVE 跟踪；25 s 画面读数 RMSE 很低 | 小重投影误差不等于世界或眼位对齐正确 |
-| 约 30–32 s | 左掌显示 Stop / Recording，操作结束录制 | 录制菜单确实进入录制状态；停止后保存过程不在片内 |
+| 0 to about 4.5 s | Detection starts; Tag is not stably visible | Unsuitable for spatial error measurement |
+| About 5-15 s | LIVE follows handheld Tag; green/magenta corners are close; panel often occludes physical Tag | Same-frame detection/PnP fit works; timing and spatial effects remain mixed |
+| About 17-17.5 s | Physical board and virtual pattern visible together; broad overlap with local edge separation | Visible alignment differences, insufficient for calibration or metric ground truth |
+| About 18-21 s | Tag below panel; orange Plane appears/disappears; panel often reports no valid pose | Consistent with LIVE visibility changes, not evidence of locked-reference drift |
+| About 24-27 s | Handheld LIVE tracking resumes; 25 s fit error is very low | Low reprojection error does not prove world or eye-view alignment |
+| About 30-32 s | Palm shows Stop / Recording and recording is ended | Recording state is visible; post-stop save completion is outside the clip |
 
-可读的若干帧显示 Corner RMSE：5 s **1.602 px**、8 s **0.511 px**、
-10 s **1.350 px**、12 s **0.075 px**、25 s **0.042 px**。
-这是屏幕读数示例，不是原始角点统计，也不是视频全程最小/最大值。
-这些误差对应各自处理的 RGB 帧，不等于录屏背景当前曝光帧的叠加误差。
+Readable Corner RMSE examples: **1.602 px** at 5 s, **0.511 px** at 8 s,
+**1.350 px** at 10 s, **0.075 px** at 12 s, and **0.042 px** at 25 s.
+These are selected on-screen values, not raw-corner statistics or global extrema.
+They describe their processed RGB frames, not necessarily the recording
+background's current exposure frame.
 
-## 误差来源：按本片证据排序
+## Potential error sources, ordered by this clip's evidence
 
-1. **测试状态与目标运动是当前最直接的限制。** 未确认锁定，手持纸板会移动；
-   Plane 此时是实时估计，位姿变化本身不是漂移。纸板尺寸、平整度和黑色边界也需独立量测。
-2. **时序差值得优先排查。** 本示例默认 8 Hz 处理，异步输出与录制背景/渲染时刻不完全一致。
-   移动 Tag 时会有离散跟随和滞后；停住后再测可以把这项影响分离。
-   8 Hz 本身不证明固定 Tag 在准确追踪下必然漂移，也不能从 MP4 反推精确延迟毫秒数。
-3. **渲染和观察方法会放大视觉差异。** 不透明控制面板遮挡真实 Tag；较粗的橙线覆盖边界；
-   半透明纹理、视频压缩和模糊使“外框多一圈”不能直接解释为尺寸/外参错误。
-   应比较码元/检测边的中心线，结合原始 Save 数据。
-4. **坐标基、外参方向、内参/畸变与合成相机仍是待检项。** 同帧 PnP 用四角拟合，
-   错误尺寸/内参仍可能得到很小 RMSE；RGB 的畸变投影和普通 Unity pinhole 渲染也不完全等同。
-   如果静止时仍有稳定偏移，应核对这些项。当前片段未证明其中某项已错。
-5. **SLAM、光学眼位、单机标定差异暂不能定因。** 需要确认的锁定走动与回到起点数据，
-   以及同条件第二台设备。RGB 合成视频不能代替透镜后的眼位观察。
+1. **Test state and target motion are the clearest current limitations.** Lock
+   is unconfirmed and the handheld board moves. LIVE pose changes are not drift.
+   Independently measure detection-edge size and check board flatness/borders.
+2. **Timing deserves early investigation.** Processing defaults to 8 Hz;
+   asynchronous results, recorded background, and rendering are not identical
+   time samples. A moving Tag can show discrete follow/lag. Measure again at rest.
+   An 8 Hz update alone does not prove a fixed target must drift under accurate
+   tracking, and this MP4 cannot establish a precise latency in milliseconds.
+3. **Rendering and observation can exaggerate differences.** The opaque panel
+   hides ground truth, thick orange lines cover boundaries, and transparency,
+   compression, and blur complicate edge reading. An extra outer border is not
+   proof of incorrect size or extrinsics. Compare cell/detection-edge centerlines
+   together with original Save data.
+4. **Basis/extrinsic direction, intrinsics/distortion, and composite projection
+   remain open checks.** Four-corner fitting can have low RMSE with incorrect
+   marker size or intrinsics. Distorted RGB projection and ordinary Unity
+   pinhole rendering also differ. Persistent static offset warrants checking
+   these items; the clip does not establish which is incorrect.
+5. **SLAM, optical eye view, and per-device calibration cannot yet be isolated.**
+   Obtain a confirmed locked walk-around/return sequence and matched tests on a
+   second device. An RGB composite cannot replace observation through the lens.
 
-## 下一轮能区分原因的测试
+## Next test to separate causes
 
-1. 测量检测黑框 80 mm，固定平板，给纸板加不能随头/手移动的支撑；避开主面板遮挡。
-2. 眼镜与板都静止，观察 5 秒并 Save，记录 Corner RMSE、次候选、距离与有效标志。
-3. 按 Lock，先把 `LOCKED` 和 `Live vs lock` 拍清楚，再开始走动。
-4. 只移动眼镜：向左/右约 20–30 cm，靠近/远离，缓慢斜视，回原位置；每处停 3–5 秒并 Save。
-5. 再做较快移动，比较停下是否恢复。仅运动中偏离优先查时序；静止后仍偏优先查变换/标定/追踪。
-6. 至少两台设备用同一块板、同样距离/光照各做数轮；分别读取设备自己的内外参。
-   对比相机相对/锁定残差，不能直接相减不同 SLAM 原点的世界坐标。
+1. Measure the black detection square as 80 mm; mount it on a rigid stationary
+   support. Keep the control panel clear of the physical marker.
+2. Keep glasses and board stationary for five seconds, then Save. Record RMSE,
+   alternative candidate error, measured distance, and validity flags.
+3. Press Lock and clearly record `LOCKED` plus `Live vs lock` before moving.
+4. Move only the glasses: about 20-30 cm left/right, closer/farther, slowly view
+   obliquely, then return. Stop for 3-5 seconds and Save at each position.
+5. Repeat with faster motion and check recovery at rest. Motion-only differences
+   prioritize timing; persistent static differences prioritize transforms,
+   calibration, or tracking, subject to further evidence.
+6. Repeat several runs on at least two devices with the same board, distance,
+   and lighting, reading each device's own calibration. Compare camera-relative
+   or locked-reference residuals, not raw coordinates from different SLAM origins.
 
-建议保存完整录屏与每处 PNG/JSON，再画“相对时间—实时对锁定距离/角度”曲线。
-本次没有对应每帧 JSON、独立地面真值或眼位影像，因此不绘制虚假的毫米精度曲线。
+Retain video and paired PNG/JSON captures at every position, then plot live-to-lock
+translation and angle against time. This review has no corresponding per-frame
+JSON, independent ground truth, or optical eye-view recording, so it does not
+present an invented millimeter-accuracy curve.
