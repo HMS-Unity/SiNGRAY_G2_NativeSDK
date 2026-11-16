@@ -77,6 +77,9 @@ namespace Singray.Foundation
         }
         private static volatile Session activeSession;
         private Session session;
+        private Session dispatchedSession;
+        private long dispatchedSequence;
+        private double dispatchedAt;
         private Coroutine startRoutine;
         private RecognizerMode resumeMode;
         private readonly object rgbOwner = new object();
@@ -91,6 +94,17 @@ namespace Singray.Foundation
         private static Action<XvTagRecognizerManager> acquireRgb = m => m.XvCameraManager.AcquireCapture(XvCameraStreamType.ARCameraStream, m.rgbOwner);
         private static Action<XvTagRecognizerManager> releaseRgb = m => Singray.Foundation.XvCameraManager.ReleaseCapture(XvCameraStreamType.ARCameraStream, m.rgbOwner);
         internal bool IsStarting => startRoutine != null;
+        // Delivery metadata for consumers that must not count the cached render-frame
+        // dispatch as a new detection. Sequence is local to this native session;
+        // age measures managed delivery time, not a sensor exposure timestamp.
+        internal bool TryGetFrameDelivery(out long sequence, out double age)
+        {
+            sequence = 0; age = double.PositiveInfinity;
+            if (!IsDetection || session == null || !ReferenceEquals(session, dispatchedSession)) return false;
+            sequence = dispatchedSequence;
+            age = Clock() - dispatchedAt;
+            return sequence > 0;
+        }
         private static double Clock() => (double)Stopwatch.GetTimestamp() / Stopwatch.Frequency;
         private static bool PlatformReady()
         {
@@ -124,6 +138,7 @@ namespace Singray.Foundation
             lock (session.FrameLock)
             { age = Clock() - session.ReceivedAt; frame = age <= 2.0 ? session.Latest : null; frames = session.Frames; }
             var running = session;
+            dispatchedSession = running; dispatchedSequence = frames; dispatchedAt = Clock() - age;
             // One dispatch per render frame, retaining existing continuous pose/Found event behavior.
             OnDetectedAprilTagEvent.Invoke(frame);
             if (!ReferenceEquals(session, running)) return;
@@ -214,6 +229,7 @@ namespace Singray.Foundation
             if (startRoutine != null) StopCoroutine(startRoutine);
             startRoutine = null;
             var stopped = session; session = null;
+            dispatchedSession = null; dispatchedSequence = 0;
             bool wasActive = IsDetection || currentRecognizerMode != RecognizerMode.None;
             IsDetection = false; currentRecognizerMode = RecognizerMode.None; resumeMode = RecognizerMode.None;
             try
