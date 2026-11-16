@@ -5,6 +5,7 @@ This checks authored repository text, not strings inside third-party binaries.
 """
 import argparse
 import hashlib
+import io
 import html
 import json
 import pathlib
@@ -21,6 +22,7 @@ TEXT_EXTENSIONS = {
     '.asmdef', '.asmref', '.csv', '.tsv', '.resx', '.config', '.plist', '.cmake',
 }
 TEXT_NAMES = {'.gitignore', '.gitattributes', 'CMakeLists.txt'}
+BINARY_EXTENSIONS = {'.aar', '.tgz', '.zip', '.dll', '.so', '.a', '.ttf', '.woff', '.woff2', '.png', '.jpg', '.jpeg', '.gif', '.wav', '.mp3', '.mp4', '.p7s'}
 UNICODE_ESCAPE = re.compile(r'\\(?:u([0-9a-fA-F]{4})|U([0-9a-fA-F]{8}))')
 SCRIPT_RANGES = (
     (0x3400, 0x4DBF), (0x4E00, 0x9FFF), (0xF900, 0xFAFF),
@@ -111,6 +113,7 @@ def audit(root, paths, manifest):
     excluded = 0
     encodings = {}
     filename_checks = 0
+    pdf_documents = []
     for name in sorted(set(paths)):
         path = (root / name).resolve()
         if not path.is_relative_to(root):
@@ -119,17 +122,37 @@ def audit(root, paths, manifest):
         filename_checks += 1
         if contains_language_characters(name):
             failures.append({'path': name, 'reason': 'Non-English filename.'})
-        if path.suffix.lower() not in TEXT_EXTENSIONS and path.name not in TEXT_NAMES:
+        if not path.is_file():
+            failures.append({'path': name, 'reason': 'Tracked file is missing.'})
+            continue
+        if path.suffix.lower() in BINARY_EXTENSIONS:
             excluded += 1
             continue
-        if not path.is_file():
-            failures.append({'path': name, 'reason': 'Tracked text is missing.'})
-            continue
-        try:
-            text, encoding = read_text(path.read_bytes())
-        except ValueError as error:
-            failures.append({'path': name, 'reason': str(error)})
-            continue
+        data = path.read_bytes()
+        if path.suffix.lower() == '.pdf':
+            try:
+                from pypdf import PdfReader
+                reader = PdfReader(io.BytesIO(data))
+                text = '\n'.join(page.extract_text() or '' for page in reader.pages)
+                if not text.strip():
+                    raise ValueError('PDF has no extractable text; perform a separate visual/OCR review.')
+                encoding = 'pdf-extracted-text'
+                pdf_documents.append({'path': name, 'pages': len(reader.pages), 'textCharacters': len(text)})
+            except ImportError:
+                failures.append({'path': name, 'reason': 'Install pypdf to include PDF documentation in the repository audit.'})
+                continue
+            except Exception as error:
+                failures.append({'path': name, 'reason': 'PDF text audit failed: ' + str(error)})
+                continue
+        else:
+            try:
+                text, encoding = read_text(data)
+            except ValueError as error:
+                if path.suffix.lower() in TEXT_EXTENSIONS or path.name in TEXT_NAMES:
+                    failures.append({'path': name, 'reason': str(error)})
+                else:
+                    excluded += 1
+                continue
         checked += 1
         encodings[encoding] = encodings.get(encoding, 0) + 1
         lines = text.splitlines()
@@ -144,10 +167,11 @@ def audit(root, paths, manifest):
         'textFilesChecked': checked,
         'binaryOrNontextPathsNotDecoded': excluded,
         'encodingsRead': encodings,
+        'pdfDocumentsChecked': pdf_documents,
         'reviewedFunctionalAndTechnicalData': reviewed_data,
         'approvalHashFormat': manifest.get('hashFormat'),
         'violations': failures,
-        'limits': 'Human-readable repository text and serialized strings only; approved language data and vendor binary contents are not translated.',
+        'limits': 'Decodable repository text, serialized strings and PDF text; image-only text and vendor binary/archive contents are not translated. Approved functional language data is retained.',
     }
 
 

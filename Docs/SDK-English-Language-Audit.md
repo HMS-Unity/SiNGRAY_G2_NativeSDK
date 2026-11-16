@@ -16,18 +16,22 @@ binary data are not prose.
 Run from the repository root:
 
 ```text
+python -m pip install pypdf
 python Tools/Validation/check_sdk_english.py
 python Tools/Validation/check_sdk_english.py --report Builds/sdk-english-audit.json
 ```
 
-The checker scans every tracked filename and every recognized text file. It
+The checker scans every tracked filename, all decodable text regardless of file
+extension, and extracted PDF documentation text. `pypdf` is a development-tool
+dependency only; it is not a Unity/customer runtime dependency. It
 reads UTF-8/BOM, UTF-16/BOM and legacy GB18030 text without replacement decoding.
 It checks literal text, serialized Unicode escapes and HTML character references.
 This prevents an escaped Unity label or an older source encoding from bypassing
 a literal UTF-8 search. Undecodable expected text files fail the check.
 
 Binary assets and vendor archive contents are not translated or rebuilt by this
-audit. TextMeshPro line-breaking tables and existing icon codepoints remain data.
+audit. PDF extraction verifies text, not text embedded in raster illustrations;
+that limitation is reported explicitly. TextMeshPro line-breaking tables and existing icon codepoints remain data.
 The gate detects East Asian script characters outside explicitly reviewed data;
 it is not a natural-language grammar checker or an ASCII-only requirement.
 
@@ -79,11 +83,16 @@ change is performed.
 
 ## Verification and limits
 
-The repository-wide gate passes for 1,704 tracked paths and 1,608 text files,
+The repository-wide gate passes for 1,704 tracked paths and 1,629 text/PDF files,
 with ten explicitly approved functional/technical data entries. Nine controlled
 language-gate checks pass, including literal/escaped/HTML/legacy-encoding cases,
 a technical icon control, hash mismatch rejection, and a UI label outside an
-approved font-data region. LF-only checkout compatibility is also checked.
+approved font-data region. LF-only checkout compatibility is also checked. Additional animation, SVG and
+nonstandard-extension fixtures verify that text cannot bypass the gate by changing
+its extension. The 14-page vendor PDF is checked through extracted text; all 18
+embedded PDF images and all 39 tracked PNG/JPG assets were also visually reviewed
+in this pass, with no Chinese interface wording observed. New or modified image
+wording requires visual review because the text gate does not perform OCR.
 
 Unity loads all four expected updated labels from the two prefabs and saved
 scene. Android Player script compilation passes. Raw-byte preservation and
